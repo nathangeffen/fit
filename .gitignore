@@ -1,0 +1,12 @@
+*.o
+*.pyc
+__init__
+fit
+grid
+sphere
+eg
+gsl_test
+*.lock
+*.swp
+*debug
+*release

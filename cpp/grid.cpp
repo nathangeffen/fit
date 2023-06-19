@@ -27,6 +27,11 @@ double rastrigin(std::vector<double> &v)
     return total;
 }
 
+double external(std::vector<double> &v)
+{
+
+}
+
 struct Domain {
     double lo;
     double hi;

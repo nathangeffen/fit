@@ -10,3 +10,4 @@ gsl_test
 *.swp
 *debug
 *release
+README.pdf

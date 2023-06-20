@@ -3,6 +3,7 @@
 import argparse
 import gettext
 import math
+import multiprocessing
 import random
 import subprocess
 import sys
@@ -89,7 +90,7 @@ class Optimization:
             }
 
     def __init__(self, method, func_str, domains, error=0.1,
-                 command=None, verbose=False, kwargs=None):
+                 command=None, verbose=False, max_threads=1, kwargs=None):
         self.method = method
         self.func_calls = 0
         self.function = self.FUNCTIONS[func_str]
@@ -97,6 +98,8 @@ class Optimization:
         self.domains = domains
         self.error = error
         self.kwargs = kwargs
+        self.lock = threading.Lock()
+        self.max_threads = max_threads
         if verbose:
             print(_("method: %(method)s" % {"method": method}))
             print(_("function: %(func_str)s" % {"func_str": func_str}))
@@ -147,51 +150,69 @@ class Optimization:
                 'calls': self.func_calls
                 }
 
+
+    def single_pass(self, dom, divisions, pass_no, pass_total,
+                    step_size, result):
+        begin = [dom[i][0] + pass_no/pass_total * step_size[i]
+                 for i in range(len(dom))]
+        best = []
+        for i in range(len(dom)):
+            v = best[0:i] + [begin[i]] + \
+                    [random.uniform(dom[j][0], dom[j][1])
+                     for j in range(i+1, len(dom))]
+            lowest = sys.maxsize
+            best = []
+            for _ in range(divisions[i]):
+                f = self.exec_func(v)
+                if f < lowest:
+                    lowest = f
+                    best = v.copy()
+                    self.lock.acquire()
+                    if lowest < result['lowest_ever']:
+                        result['lowest_ever'] = lowest
+                        result['best_ever'] = best.copy()
+                    self.lock.release()
+                    if result['lowest_ever'] < self.error:
+                        return
+                v[i] += step_size[i]
+
+
     def grid(self, parameters):
         dom = [[d[0], d[1]] for d in self.domains]
-        lowest = lowest_ever = sys.maxsize
-        best = best_ever = []
+        result = {
+            'lowest_ever': sys.maxsize,
+            'best_ever': []
+        }
         step_size = []
-
+        passes = parameters['passes']
         for g in range(parameters['generations']):
             if g > 0:
-                dom = [[best[i] - step_size[i], best[i] + step_size[i]]
-                       for i in range(len(best))]
+                dom = [[result['best_ever'][i] - step_size[i],
+                        result['best_ever'][i] + step_size[i]]
+                        for i in range(len(self.domains))]
             step_size = [(dom[i][1] - dom[i][0]) /
                          parameters['divisions'][i]
                          for i in range(len(dom))]
-
-            for p in range(parameters['passes']):
-                begin = [dom[i][0] + p/parameters['passes'] * step_size[i]
-                         for i in range(len(dom))]
-
-                for i in range(len(dom)):
-                    v = best[0:i] + [begin[i]] + \
-                            [random.uniform(dom[j][0], dom[j][1])
-                             for j in range(i+1, len(dom))]
-
-                    lowest = sys.maxsize
-                    best = []
-
-                    for _ in range(parameters['divisions'][i]):
-                        result = self.exec_func(v)
-
-                        if result < lowest:
-                            lowest = result
-                            best = v.copy()
-                            if lowest < lowest_ever:
-                                lowest_ever = lowest
-                                best_ever = best.copy()
-
-                            if lowest_ever < self.error:
-                                return {'vector': best_ever,
-                                        'func': lowest_ever,
-                                        'calls': self.func_calls}
-
-                        v[i] += step_size[i]
-
-        return {'vector': best_ever,
-                'func': lowest_ever,
+            p = 0
+            while p < passes and \
+                    result['lowest_ever'] > self.error:
+                t = 0
+                threads = []
+                while t < self.max_threads and \
+                        p < passes and \
+                            result['lowest_ever'] > self.error:
+                    threads.append(
+                            threading.Thread(
+                                target=self.single_pass,
+                                    args=(dom, parameters['divisions'], p,
+                                    passes, step_size, result)))
+                    threads[-1].start()
+                    t += 1
+                    p += 1
+                for thread in threads:
+                    thread.join()
+        return {'vector': result['best_ever'],
+                'func': result['lowest_ever'],
                 'calls': self.func_calls}
 
 
@@ -220,7 +241,10 @@ def process_args():
     parser.add_argument('-g', '--generations', type=int, default=3,
                         help=_('number of generations for grid_evolve method'))
     parser.add_argument('-p', '--passes', type=int, default=1,
-                        help=_('number of iterations to use to optimize'))
+                        help=_('number of passes per division in grid optimize'))
+    parser.add_argument('-t', '--threads', type=int,
+                        default=multiprocessing.cpu_count(),
+                        help=_('maximum number of threads to use'))
     parser.add_argument('-i', '--iter', type=int, default=1000,
                         help=_('number of iterations to use to optimize'))
     parser.add_argument('-e', '--error', type=float, default="0.01",
@@ -244,8 +268,8 @@ def process_args():
         if len(divisions) == 1:
             divisions = [divisions[0]] * variables
         o = Optimization(args.method, args.function, domains, args.error,
-                         args.command, args.verbose,
-                         {
+                         args.command, args.verbose, args.threads,
+                         kwargs = {
                             'divisions': divisions,
                             'generations': args.generations,
                             'passes': args.passes,

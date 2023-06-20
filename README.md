@@ -27,3 +27,11 @@ the programming environments should attempt to have:
 
 - It implements internationalization, or at least the coder's responsibility
   for this.
+
+- It provides unit tests.
+
+Also, the code in each programming environment must be reasonably iconic. I
+suppose one could write Python to be as fast as C if you poked machine code
+directly into memory, but that would make it pointless to code in Python in the
+first place. So a rule I have stuck to is: don't abuse the language to
+optimize.

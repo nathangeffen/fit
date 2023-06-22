@@ -1,5 +1,22 @@
 #!/usr/bin/env python3
 
+"""
+Reference implementation of Grid Evolve minimization algorithm.
+See README.md for explanation of algorithm.
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>.  """
+
 import argparse
 import gettext
 import math
@@ -7,10 +24,11 @@ import multiprocessing
 import random
 import subprocess
 import sys
-import threading
 
 _ = gettext.gettext
 
+
+# Test optimization functions
 
 def sphere(x):
     total = 0.0
@@ -28,13 +46,21 @@ def rastrigin(x):
 
 
 def external(x, command):
+
+    """Optimization function that will typically be called when this program is
+    invoked as a CLI.  """
+
     args = [str(i) for i in x]
     result = float(subprocess.run([command, *args],
-                                  capture_output=True, text=True).stdout)
+        capture_output=True, text=True).stdout)
     return result
 
 
 def make_domains(n, lo, hi):
+
+    """Returns a list of 2-tuples, each being the lower and upper bound of the
+    domain of each variable.  """
+
     v = []
     if len(lo) == 1 and len(hi) == 1:
         for _ in range(n):
@@ -50,39 +76,15 @@ def make_domains(n, lo, hi):
             v.append([lo[0], hi[i]])
     else:
         raise ValueError(_("lo and hi must either have 1 value or the same "
-                         "number of values as the number of variables."))
+            "number of values as the number of variables."))
     return v
 
 
-class Counter:
-
-    def __init__(self, max_vals):
-        self.max_vals = max_vals
-        self.counters = [0] * len(self.max_vals)
-
-    def inc(self):
-        for i in range(len(self.max_vals) - 1, -1, -1):
-            self.counters[i] += 1
-            if self.counters[i] >= self.max_vals[i]:
-                self.counters[i] = 0
-            else:
-                break
-
-    def rand(self):
-        for i in range(len(self.max_vals)):
-            self.counters[i] = random.randint(0, self.max_vals[i]-1)
-
-    def product(self):
-        total = 1
-        for i in range(len(self.max_vals)):
-            total *= self.max_vals[i]
-        return total
-
-    def reset(self):
-        self.counters = [0] * len(self.max_vals)
-
-
 class Optimization:
+
+    """Class to manage the optimization algorithms, and in which they are
+    implemented.  """
+
     FUNCTIONS = {
             'sphere': sphere,
             'rastrigin': rastrigin,
@@ -90,16 +92,16 @@ class Optimization:
             }
 
     def __init__(self, method, func_str, domains, error=0.1,
-                 command=None, verbose=False, max_threads=1, kwargs=None):
+            command=None, verbose=False, max_jobs=1, kwargs=None):
         self.method = method
-        self.func_calls = 0
+        self.func_calls = multiprocessing.Value('i')
+        self.func_calls.value = 0
         self.function = self.FUNCTIONS[func_str]
         self.command = command
         self.domains = domains
         self.error = error
         self.kwargs = kwargs
-        self.lock = threading.Lock()
-        self.max_threads = max_threads
+        self.max_jobs = max_jobs
         if verbose:
             print(_("method: %(method)s" % {"method": method}))
             print(_("function: %(func_str)s" % {"func_str": func_str}))
@@ -109,22 +111,32 @@ class Optimization:
             if kwargs:
                 for k, v in kwargs.items():
                     print(_("%(key)s: %(value)s" % {'key': k,
-                                                    'value': str(v)}))
+                        'value': str(v)}))
         if kwargs and "divisions" in kwargs:
             if len(kwargs["divisions"]) > 1 and \
                     len(kwargs["divisions"]) != len(domains):
-                raise ValueError(_("Number of divisions must be 1 or equal to "
-                                 "number of domains."))
-
+                        raise ValueError(_("Number of divisions must be 1 or equal to "
+                            "number of domains."))
 
     def exec_func(self, x):
-        self.func_calls += 1
+
+        """Calls the appropriate optimization function with the vector x, and
+        increments the call count tracker. If an external program executes the
+        function to be minimizaed then "external" is called with the
+        command."""
+
+        with self.func_calls.get_lock():
+            self.func_calls.value += 1
         if self.function == external:
             return self.function(x, self.command)
         else:
             return self.function(x)
 
     def optimize(self):
+
+        """ Call the appropriate optimization/minimization algorithm,
+        currently, either random guession or the Grid Evolve algorithm.  """
+
         METHODS = {
                 'random': self.random,
                 'grid': self.grid
@@ -133,6 +145,7 @@ class Optimization:
         return method(self.kwargs)
 
     def random(self, parameters):
+        """Randomly attempts to find minimum of a function."""
         lowest = sys.maxsize
         best = []
         for _ in range(parameters['iterations']):
@@ -147,19 +160,23 @@ class Optimization:
                     break
         return {'vector': best,
                 'func': lowest,
-                'calls': self.func_calls
+                'calls': self.func_calls.value
                 }
 
+    def single_pass(self, dom, divisions, pass_no, pass_total, job_no,
+            step_size, return_dict):
 
-    def single_pass(self, dom, divisions, pass_no, pass_total,
-                    step_size, result):
+        """Iterates over each variable in the vector by a specified division
+        choosing the set of values that minimizes the function.
+        """
+
         begin = [dom[i][0] + pass_no/pass_total * step_size[i]
-                 for i in range(len(dom))]
+                for i in range(len(dom))]
         best = []
         for i in range(len(dom)):
             v = best[0:i] + [begin[i]] + \
                     [random.uniform(dom[j][0], dom[j][1])
-                     for j in range(i+1, len(dom))]
+                            for j in range(i+1, len(dom))]
             lowest = sys.maxsize
             best = []
             for _ in range(divisions[i]):
@@ -167,56 +184,61 @@ class Optimization:
                 if f < lowest:
                     lowest = f
                     best = v.copy()
-                    self.lock.acquire()
-                    if lowest < result['lowest_ever']:
-                        result['lowest_ever'] = lowest
-                        result['best_ever'] = best.copy()
-                    self.lock.release()
-                    if result['lowest_ever'] < self.error:
+                    if lowest < self.error:
+                        return_dict[job_no] = (lowest, best)
                         return
                 v[i] += step_size[i]
-
+        return_dict[job_no] = (lowest, best)
 
     def grid(self, parameters):
+
+        """Grid Evolve minimization method that tries to find a global minimum
+        for a function that takes a vector of floats and outputs a float.  """
+
         dom = [[d[0], d[1]] for d in self.domains]
-        result = {
-            'lowest_ever': sys.maxsize,
-            'best_ever': []
-        }
+        divisions = parameters['divisions']
+        lowest_ever = sys.maxsize
+        best_ever = []
         step_size = []
         passes = parameters['passes']
         for g in range(parameters['generations']):
             if g > 0:
-                dom = [[result['best_ever'][i] - step_size[i],
-                        result['best_ever'][i] + step_size[i]]
-                        for i in range(len(self.domains))]
-            step_size = [(dom[i][1] - dom[i][0]) /
-                         parameters['divisions'][i]
+                dom = [[best_ever[i] - step_size[i],
+                        best_ever[i] + step_size[i]]
+                       for i in range(len(self.domains))]
+            step_size = [(dom[i][1] - dom[i][0]) / divisions[i]
                          for i in range(len(dom))]
             p = 0
-            while p < passes and \
-                    result['lowest_ever'] > self.error:
-                t = 0
-                threads = []
-                while t < self.max_threads and \
-                        p < passes and \
-                            result['lowest_ever'] > self.error:
-                    threads.append(
-                            threading.Thread(
+            while p < passes and lowest_ever > self.error:
+                j = 0
+                jobs = []
+                manager = multiprocessing.Manager()
+                return_dict = manager.dict()
+                while j < self.max_jobs and p < passes and \
+                        lowest_ever > self.error:
+                    jobs.append(multiprocessing.Process(
                                 target=self.single_pass,
-                                    args=(dom, parameters['divisions'], p,
-                                    passes, step_size, result)))
-                    threads[-1].start()
-                    t += 1
+                                args=(dom, divisions, p, passes, j,
+                                      step_size, return_dict)))
+                    jobs[-1].start()
+                    j += 1
                     p += 1
-                for thread in threads:
-                    thread.join()
-        return {'vector': result['best_ever'],
-                'func': result['lowest_ever'],
-                'calls': self.func_calls}
+                for job in jobs:
+                    job.join()
+                for _, (l, b) in return_dict.items():
+                    if l < lowest_ever:
+                        lowest_ever = l
+                        best_ever = b.copy()
+
+        return {'vector': best_ever,
+                'func': lowest_ever,
+                'calls': self.func_calls.value}
 
 
 def process_args():
+
+    """Processes the command line arguments.
+    """
 
     def optimization_method(s):
         if s in ['grid', 'random']:
@@ -241,10 +263,11 @@ def process_args():
     parser.add_argument('-g', '--generations', type=int, default=3,
                         help=_('number of generations for grid_evolve method'))
     parser.add_argument('-p', '--passes', type=int, default=1,
-                        help=_('number of passes per division in grid optimize'))
-    parser.add_argument('-t', '--threads', type=int,
+                        help=_('number of passes per division in grid '
+                                'optimize'))
+    parser.add_argument('-j', '--jobs', type=int,
                         default=multiprocessing.cpu_count(),
-                        help=_('maximum number of threads to use'))
+                        help=_('maximum number of parallel jobs to run'))
     parser.add_argument('-i', '--iter', type=int, default=1000,
                         help=_('number of iterations to use to optimize'))
     parser.add_argument('-e', '--error', type=float, default="0.01",
@@ -252,7 +275,7 @@ def process_args():
     parser.add_argument('-m', '--method', type=optimization_method,
                         default="grid",
                         help=_('optimization method: '
-                               'grid (default) or random'))
+                                'grid (default) or random'))
     parser.add_argument('-c', '--command', type=str, default="./sphere",
                         help=_('external program to run'))
 
@@ -268,20 +291,20 @@ def process_args():
         if len(divisions) == 1:
             divisions = [divisions[0]] * variables
         o = Optimization(args.method, args.function, domains, args.error,
-                         args.command, args.verbose, args.threads,
-                         kwargs = {
-                            'divisions': divisions,
-                            'generations': args.generations,
-                            'passes': args.passes,
-                            'iterations': args.iter
-                          })
+                args.command, args.verbose, args.jobs,
+                kwargs = {
+                    'divisions': divisions,
+                    'generations': args.generations,
+                    'passes': args.passes,
+                    'iterations': args.iter
+                    })
 
         result = o.optimize()
         print(_("Best vector: %(vector)s" % {"vector": str(result['vector'])}))
         print(_("Minimum found: %(func)f" %
-                {"func": result["func"]}))
+            {"func": result["func"]}))
         print(_("Function calls: %(calls)d" %
-                {'calls': result['calls']}))
+            {'calls': result['calls']}))
     except ValueError as err:
         print(_("Error: %(msg)s" % {'msg': err.args[0]}))
         raise

@@ -52,7 +52,7 @@ def external(x, command):
 
     args = [str(i) for i in x]
     result = float(subprocess.run([command, *args],
-        capture_output=True, text=True).stdout)
+                   capture_output=True, text=True).stdout)
     return result
 
 
@@ -76,7 +76,7 @@ def make_domains(n, lo, hi):
             v.append([lo[0], hi[i]])
     else:
         raise ValueError(_("lo and hi must either have 1 value or the same "
-            "number of values as the number of variables."))
+                           "number of values as the number of variables."))
     return v
 
 
@@ -92,7 +92,7 @@ class Optimization:
             }
 
     def __init__(self, method, func_str, domains, error=0.1,
-            command=None, verbose=False, max_jobs=1, kwargs=None):
+                 command=None, verbose=False, max_jobs=1, kwargs=None):
         self.method = method
         self.func_calls = multiprocessing.Value('i')
         self.func_calls.value = 0
@@ -111,12 +111,12 @@ class Optimization:
             if kwargs:
                 for k, v in kwargs.items():
                     print(_("%(key)s: %(value)s" % {'key': k,
-                        'value': str(v)}))
+                          'value': str(v)}))
         if kwargs and "divisions" in kwargs:
             if len(kwargs["divisions"]) > 1 and \
                     len(kwargs["divisions"]) != len(domains):
-                        raise ValueError(_("Number of divisions must be 1 or equal to "
-                            "number of domains."))
+                raise ValueError(_("Number of divisions must be 1 or equal to "
+                                   "number of domains."))
 
     def exec_func(self, x):
 
@@ -164,19 +164,19 @@ class Optimization:
                 }
 
     def single_pass(self, dom, divisions, pass_no, pass_total, job_no,
-            step_size, return_dict):
+                    step_size, return_dict):
 
         """Iterates over each variable in the vector by a specified division
         choosing the set of values that minimizes the function.
         """
 
         begin = [dom[i][0] + pass_no/pass_total * step_size[i]
-                for i in range(len(dom))]
+                 for i in range(len(dom))]
         best = []
         for i in range(len(dom)):
             v = best[0:i] + [begin[i]] + \
                     [random.uniform(dom[j][0], dom[j][1])
-                            for j in range(i+1, len(dom))]
+                     for j in range(i+1, len(dom))]
             lowest = sys.maxsize
             best = []
             for _ in range(divisions[i]):
@@ -264,7 +264,7 @@ def process_args():
                         help=_('number of generations for grid_evolve method'))
     parser.add_argument('-p', '--passes', type=int, default=1,
                         help=_('number of passes per division in grid '
-                                'optimize'))
+                               'optimize'))
     parser.add_argument('-j', '--jobs', type=int,
                         default=multiprocessing.cpu_count(),
                         help=_('maximum number of parallel jobs to run'))
@@ -291,20 +291,20 @@ def process_args():
         if len(divisions) == 1:
             divisions = [divisions[0]] * variables
         o = Optimization(args.method, args.function, domains, args.error,
-                args.command, args.verbose, args.jobs,
-                kwargs = {
-                    'divisions': divisions,
-                    'generations': args.generations,
-                    'passes': args.passes,
-                    'iterations': args.iter
-                    })
+                         args.command, args.verbose, args.jobs,
+                         kwargs={
+                            'divisions': divisions,
+                            'generations': args.generations,
+                            'passes': args.passes,
+                            'iterations': args.iter
+                            })
 
         result = o.optimize()
         print(_("Best vector: %(vector)s" % {"vector": str(result['vector'])}))
         print(_("Minimum found: %(func)f" %
-            {"func": result["func"]}))
+                {"func": result["func"]}))
         print(_("Function calls: %(calls)d" %
-            {'calls': result['calls']}))
+                {'calls': result['calls']}))
     except ValueError as err:
         print(_("Error: %(msg)s" % {'msg': err.args[0]}))
         raise

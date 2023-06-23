@@ -1,5 +1,7 @@
 # Function fitter: simple but not too simple
 
+## THIS IS WORK IN PROGRESS. IGNORE FOR NOW.
+
 The aim of this project is to solve an interesting coding problem in multiple
 programming environments, and then compare those environments on several
 criteria:

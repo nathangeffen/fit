@@ -85,18 +85,12 @@ class Optimization:
     """Class to manage the optimization algorithms, and in which they are
     implemented.  """
 
-    FUNCTIONS = {
-            'sphere': sphere,
-            'rastrigin': rastrigin,
-            'external': external
-            }
-
-    def __init__(self, method, func_str, domains, error=0.1,
+    def __init__(self, method, func, domains, error=0.1,
                  command=None, verbose=False, max_jobs=1, kwargs=None):
         self.method = method
         self.func_calls = multiprocessing.Value('i')
         self.func_calls.value = 0
-        self.function = self.FUNCTIONS[func_str]
+        self.function = func
         self.command = command
         self.domains = domains
         self.error = error
@@ -104,7 +98,7 @@ class Optimization:
         self.max_jobs = max_jobs
         if verbose:
             print(_("method: %(method)s" % {"method": method}))
-            print(_("function: %(func_str)s" % {"func_str": func_str}))
+            print(_("function: %(func)s" % {"func": func}))
             print(_("command: %(command)s" % {"command": command}))
             print(_("domains: %(domains)s" % {"domains": str(domains)}))
             print(_("error: %(error)f" % {"error": error}))
@@ -240,6 +234,12 @@ def process_args():
     """Processes the command line arguments.
     """
 
+    FUNCTIONS = {
+            'sphere': sphere,
+            'rastrigin': rastrigin,
+            'external': external
+            }
+
     def optimization_method(s):
         if s in ['grid', 'random']:
             return s
@@ -286,11 +286,12 @@ def process_args():
     if variables == 0:
         variables = max(len(lo), len(hi))
     try:
+        function = FUNCTIONS[args.function]
         domains = make_domains(variables, lo, hi)
         divisions = args.divisions
         if len(divisions) == 1:
             divisions = [divisions[0]] * variables
-        o = Optimization(args.method, args.function, domains, args.error,
+        o = Optimization(args.method, function, domains, args.error,
                          args.command, args.verbose, args.jobs,
                          kwargs={
                             'divisions': divisions,
@@ -308,7 +309,9 @@ def process_args():
     except ValueError as err:
         print(_("Error: %(msg)s" % {'msg': err.args[0]}))
         raise
-
+    except KeyError as err:
+        print(_("Error: %(msg)s" % {'msg': err.args[0]}))
+        raise
 
 if __name__ == "__main__":
     process_args()

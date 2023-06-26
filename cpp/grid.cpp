@@ -14,18 +14,28 @@
  *
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <https://www.gnu.org/licenses/>.  """
-**/
+ **/
 
+#include <atomic>
+#include <any>
 #include <cfloat>
 #include <getopt.h>
 #include <cmath>
 #include <algorithm>
+#include <stdexcept>
 #include <functional>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
+#include <unordered_map>
 #include <vector>
+#include <boost/process.hpp>
+
+namespace bp = boost::process;
+
+typedef std::function<double(const std::vector<double>, std::any)> opt_func;
 
 double sphere(std::vector<double> &v)
 {
@@ -46,124 +56,76 @@ double rastrigin(std::vector<double> &v)
     return total;
 }
 
-double external(std::vector<double> &v, std::string& command)
+double external(const std::vector<double>& x_i, const std::string& command)
 {
-    return 0.0;
-}
+    std::stringstream args;
+    bp::ipstream is;
+    args << " ";
+    for (auto x: x_i)
+        args << x << " ";
 
-struct Domain {
-    double lo;
-    double hi;
-    std::string str() {
-        std::stringstream ss;
-        ss << "(" << lo << ", " << hi << ")";
-        return ss.str();
-    }
-};
+    std::string cmd = command + " " + args.str();
+    bp::system(cmd, bp::std_out > is);
 
-std::vector<Domain> make_domains(unsigned n, double lo, double hi)
-{
-    std::vector<Domain> result;
-    for (unsigned i = 0; i < n; i++) {
-        result.push_back({lo, hi});
-    }
+    double result;
+    is >> result;
     return result;
 }
 
-class Counter {
-    public:
-        Counter(std::vector<unsigned> max_vals) {
-            max_vals_ = max_vals;
-            for (unsigned i = 0; i < max_vals_.size(); i++) {
-                counters_.push_back(0);
-            }
-        }
-
-        void inc() {
-            for (int i = counters_.size() - 1; i >= 0; i--) {
-                ++counters_[i];
-                if (counters_[i] >= max_vals_[i]) {
-                    counters_[i] = 0;
-                } else {
-                    break;
-                }
-            }
-        }
-
-        void reset() {
-            std::fill(counters_.begin(), counters_.end(), 0);
-        }
-
-        inline std::vector<unsigned> get() {
-            return counters_;
-        }
-
-        std::string str() {
-            std::stringstream ss;
-            for (auto c: counters_) {
-                ss << c << " ";
-            }
-            return ss.str();
-        }
-
-
-    private:
-        std::vector<unsigned> max_vals_;
-        std::vector<unsigned> counters_;
-};
-
-struct Result {
-    double lowest;
-    std::vector<double> best;
-    std::string str() {
-        std::stringstream ss;
-        ss << lowest << "; [ ";
-        for (auto d: best) {
-            ss << d << " ";
-        }
-        ss << " ]";
-        return ss.str();
-    }
-};
-
-Result grid_method(std::function<double(std::vector<double>&)> func,
-        std::vector<Domain>& domains,
-        unsigned iterations)
+std::vector< std::pair<double, double> > make_domains(
+        unsigned n, std::vector<double> lo, std::vector<double> hi)
 {
-    unsigned vals_per_domain = (unsigned) round(pow(iterations, 1.0 / domains.size()));
-    unsigned iters = (unsigned) pow(vals_per_domain, domains.size());
-    auto counter = Counter(std::vector<unsigned>(domains.size(), vals_per_domain));
-    auto lowest = DBL_MAX;
-    std::vector<double> best;
-    std::vector<double> step_size(domains.size());
-    std::vector<double> begin(domains.size());
+    std::vector< std::pair<double, double> > v;
 
-    for (unsigned i = 0; i < domains.size(); i++) {
-        step_size[i] = (domains[i].hi - domains[i].lo) / (double) vals_per_domain;
-        begin[i] = domains[i].lo + 0.5 * step_size[i];
-    }
-
-    for (unsigned i = 0; i < iters; i++) {
-        std::vector<double> v;
-        for (unsigned j = 0; j < domains.size(); j++) {
-            auto val = begin[j] + counter.get()[j] * step_size[j];
-            v.push_back(val);
+    if (lo.size() == 1 && hi.size() == 1) {
+        for (unsigned i = 0; i < n; i++) {
+            v.push_back(std::pair<double, double>{lo[0], hi[0]});
         }
-        auto r = func(v);
-        if (r < lowest) {
-            lowest = r;
-            best = v;
+    } else if (lo.size() == n && hi.size() == n) {
+        for (unsigned i = 0; i < n; i++) {
+            v.push_back(std::pair<double, double>{lo[i], hi[i]});
         }
-        counter.inc();
+    } else if (lo.size() == n && hi.size() == 1) {
+        for (unsigned i = 0; i < n; i++) {
+            v.push_back(std::pair<double, double>{lo[i], hi[0]});
+        }
+    } else if (lo.size() == 1 && hi.size() == n) {
+        for (unsigned i = 0; i < n; i++) {
+            v.push_back(std::pair<double, double>{lo[0], hi[i]});
+        }
+    } else {
+        throw std::invalid_argument("lo and hi must either have 1 value "
+                "or the same number of values as the number of variables.");
     }
-    return {lowest, best};
+    return v;
 }
 
+/* Class to manage optimization algorithms, and in which they
+ * are implemented.
+ */
+class Optimization {
+    public:
+    void init(const char *method,
+              opt_func func,
+              std::any& user_data,
+              std::vector< std::pair<double, double> >& domains,
+              double error=0.1,
+              const char *command=NULL,
+              bool verbose=false,
+              unsigned max_threads=1,
+              const std::unordered_map<const char *, double>& args={}) {
 
+
+    }
+
+    private:
+    std::string method_;
+    std::atomic_uint func_calls = 0;
+};
 
 int main(int argc, char *argv[])
 {
-    unsigned n = 5, iterations = 100000;
+    unsigned n = 5; //, iterations = 100000;
     double lo = -100.0;
     double hi = 100.0;
 
@@ -191,18 +153,18 @@ int main(int argc, char *argv[])
                           break;
                 case 'h': hi = std::stod(optarg);
                           break;
-                case 'i': iterations = (unsigned) std::stoul(optarg);
-                          break;
+                //case 'i': iterations = (unsigned) std::stoul(optarg);
+                //          break;
                 case '?': break;
                 default: std::cout << "Unknown option: " << c << "\n";
             }
         } catch (std::invalid_argument &e) {
-           	std::cerr << "Invalid argument for " << (char) c << ": " << optarg << '\n';
+            std::cerr << "Invalid argument for " << (char) c << ": " << optarg << '\n';
             exit(EXIT_FAILURE);
         }
     }
-    auto domains = make_domains(n, lo, hi);
-    auto result = grid_method(sphere, domains, iterations);
-    std::cout << result.str() << "\n";
+    auto domains = make_domains(n, {lo}, {hi});
+    //auto result = grid_method(sphere, domains, iterations);
+
     return 0;
 }

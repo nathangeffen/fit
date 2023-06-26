@@ -2,8 +2,12 @@
 #include <limits>
 #include <numbers>
 #include <random>
+#include <sstream>
 #include <vector>
 #include <functional>
+#include <boost/process.hpp>
+
+namespace bp = boost::process;
 
 thread_local std::random_device rd;
 thread_local std::mt19937 gen(rd());
@@ -24,11 +28,28 @@ double rastrigin(const std::vector<double>& x_i)
 {
     double total = 0.0;
 
-    for (auto x: x_i)
-        total += x * x - 10 * cos(2 * std::numbers::pi * x);
-    total += 10 * x_i.size();
-
+    total = 10 * x_i.size();
+    for (auto x: x_i) {
+        double term  = (x + 10.0) * (x + 10.0) - 10.0 *
+            cos(2 * std::numbers::pi * (x + 10.0));
+        total += term;
+    }
     return total;
+}
+
+double external(const std::vector<double>& x_i, const std::string& command)
+{
+    std::stringstream args;
+    bp::ipstream is;
+    args << " ";
+    for (auto x: x_i)
+        args << x << " ";
+
+    bp::system(command, args, bp::std_out > is);
+
+    double result;
+    is >> result;
+    return result;
 }
 
 ////////////////////////////
@@ -97,5 +118,7 @@ int main(int argc, char *argv[])
     std::cout << result << "\n";
     // for (auto x: result) std::cout << x << " ";
     // std::cout << "\n";
+    std::vector<double> v = {1.0, 2.0, 3.0};
+    external(v, "./sphere");
     return 0;
 }

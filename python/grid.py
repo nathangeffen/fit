@@ -45,6 +45,13 @@ def rastrigin(x):
     return total
 
 
+def flipflop(x):
+    total = 15.0
+    for i in x:
+        total += i
+    return abs(total)
+
+
 def external(x, command):
 
     """Optimization function that will typically be called when this program is
@@ -237,6 +244,7 @@ def process_args():
     FUNCTIONS = {
             'sphere': sphere,
             'rastrigin': rastrigin,
+            'flipflop': flipflop,
             'external': external
             }
 
@@ -312,6 +320,7 @@ def process_args():
     except KeyError as err:
         print(_("Error: %(msg)s" % {'msg': err.args[0]}))
         raise
+
 
 if __name__ == "__main__":
     process_args()

@@ -34,7 +34,7 @@
 #include <unordered_map>
 #include <vector>
 #include <boost/process.hpp>
-
+#include <boost/thread.hpp>
 
 namespace bp = boost::process;
 
@@ -47,6 +47,7 @@ struct Option {
     std::string description;
     std::any value;
     char num = '1';
+    std::string default_value = "true";
 };
 
 std::ostream& operator<<(std::ostream& os, const Option& option)
@@ -55,6 +56,8 @@ std::ostream& operator<<(std::ostream& os, const Option& option)
     os << " (default: ";
     if (option.value.type() == typeid(bool *)) {
         os << *std::any_cast<bool *>(option.value);
+    } else if (option.value.type() == typeid(unsigned *)) {
+        os << *std::any_cast<unsigned *>(option.value);
     } else if (option.value.type() == typeid(int *)) {
         os << *std::any_cast<int *>(option.value);
     } else if (option.value.type() == typeid(double *)) {
@@ -82,7 +85,6 @@ void print_help(const std::vector<Option>& options, const char *prog_name,
 
     std::cout << "\tOptions:" << std::endl;
     for (auto &option: options) {
-
         std::cout << "\t-" << option << std::endl;
     }
 }
@@ -95,85 +97,120 @@ void process_command_options(int argc, char *argv[],
     }
 }
 
+std::vector<std::string>
+split(const std::string& str, char delim=':')
+{
+    std::vector<std::string> result;
+    std::string token;
+    for (auto it = str.begin(); it != str.end(); it++) {
+        if (*it == delim) {
+            result.push_back(token);
+            token = "";
+        } else {
+            token += *it;
+        }
+    }
+    if (token.size() > 0) {
+        result.push_back(token);
+    }
+    return result;
+}
+
+std::vector<double> strvectodblvec(const std::vector<std::string> vals)
+{
+    std::vector<double> result;
+    for (auto& v: vals) {
+        result.push_back(std::stod(v));
+    }
+    return result;
+}
+
+std::vector<unsigned> strvectounsvec(const std::vector<std::string> vals)
+{
+    std::vector<unsigned> result;
+    for (auto& v: vals) {
+        result.push_back(std::stoul(v));
+    }
+    return result;
+}
+
+
+void set_option(Option & option, std::string & value)
+{
+    std::cerr << option.name << " " << value << "\n";
+    if (option.value.type() == typeid(double *)) {
+        *(std::any_cast < double *>(option.value)) = std::stod(value);
+    } else if (option.value.type() == typeid(unsigned *)) {
+        *(std::any_cast < unsigned *>(option.value)) =
+            std::stoul(value);
+    } else if (option.value.type() == typeid(int *)) {
+        *(std::any_cast < int *>(option.value)) = std::stoi(value);
+    } else if (option.value.type() == typeid(bool *)) {
+        *(std::any_cast < bool *>(option.value)) =
+            (value == "true") ? true : false;
+    } else if (option.num == '1') {
+        *(std::any_cast < std::string * >(option.value)) = value;
+    } else if (option.num == '+') { // multiple doubles separated by ':'
+        std::vector<std::string> strarr = split(value);
+        *(std::any_cast< std::vector<double> * >(option.value)) = strvectodblvec(strarr);
+    } else if (option.num == '*') { // multiple unsigned separated by ':'
+        std::vector<std::string> strarr = split(value);
+        *(std::any_cast< std::vector<unsigned> * >(option.value)) = strvectounsvec(strarr);
+    } else {
+        throw std::invalid_argument("unknown type for command line option " + option.name + ": " + value);
+    }
+}
+
 void process_options(int argc, char *argv[], std::vector<Option>& options,
         const char *prog_desc = NULL)
 {
     std::vector<std::string> arguments;
-
+    bool option_expected = true;
+    unsigned start = 0;
+    std::string arg, name, value_s;
+    Option current_option;
     process_command_options(argc, argv, arguments);
-
-    size_t i = 0;
-    while (i < arguments.size()) {
-        std::string arg = arguments[i];
-        if (arg == "-h" || arg == "--help" || arg == "help") {
-            print_help(options, argv[0], prog_desc);
-            exit(0);
-        }
-
-        int start = 0;
-        if (arg[0] == '-') {
-            if (arg[1] == '-')
-                start = 2;
-            else
-                start = 1;
-        }
-
-        std::string name;
-        std::string value_s;
-
-        size_t p = arg.find('=');
-        if (p == std::string::npos || p == arg.size() - 1) {
-            if (i+1 < arguments.size()) {
-                name = arguments[i].substr(start);
-                ++i;
-                value_s = arguments[i];
-            } else {
-                name = arguments[i].substr(start);
-                value_s = "";
+    for (auto& arg: arguments) {
+        if (option_expected) {
+            if (arg == "-h" || arg == "--help" || arg == "help") {
+                print_help(options, argv[0], prog_desc);
+                exit(0);
+            }
+            if (arg[0] == '-') {
+                if (arg.size() > 1 && arg[1] == '-') {
+                    start = 2; // long option
+                } else {
+                    start = 1; // short option
+                }
+            }
+            name = arg.substr(start);
+            bool found = false;
+            for (auto & option: options) {
+                if ((start == 2 && option.name == name) ||
+                        (start == 1 && option.short_name == name)) {
+                    found = true;
+                    if (option.num == '0') {
+                        value_s = option.default_value;
+                        set_option(option, value_s);
+                    } else {
+                        option_expected = false;
+                    }
+                    current_option = option;
+                    break;
+                }
+            }
+            if (!found) {
+                std::cerr << "Unknown option:" << arg << std::endl;
+                exit(1);
             }
         } else {
-            name = arg.substr(start, p-start);
-            value_s = arg.substr(p + 1);
+            set_option(current_option, arg);
+            option_expected = true;
         }
-
-        int found = 0;
-        for (auto & option: options) {
-            if ((start == 2 && option.name == name) ||
-                    (start == 1 && option.short_name == name)) {
-                found = 1;
-                if (option.num == '0' && value_s == "") {
-                    ;
-                } else if (option.num == '0' && value_s != "") {
-                    std::cerr << "Option " << option.name << " does not take argument.\n";
-                    print_help(options, argv[0], prog_desc);
-                    exit(0);
-                } else if (value_s == "") {
-                    std::cerr << "Option " << option.name << " needs argument.\n";
-                    print_help(options, argv[0], prog_desc);
-                    exit(0);
-                } else {
-                    if (option.value.type() == typeid(double*)) {
-                        *(std::any_cast<double*>(option.value)) = std::stod(value_s);
-                    } else if (option.value.type() == typeid(int *)) {
-                        *(std::any_cast<int*>(option.value))  = std::stoi(value_s);
-                    } else if (option.value.type() == typeid(bool *)) {
-                        *(std::any_cast<bool*>(option.value)) =
-                            (value_s == "true") ? true : false;
-                    } else {
-                        *(std::any_cast<std::string*>(option.value)) = value_s;
-                    }
-                }
-                break;
-            }
-        }
-        if (!found) {
-            std::cerr << "Unknown option:" << arg << std::endl;
-            std::cerr << "Try: " << std::endl;
-            std::cerr << '\t' << argv[0] << " --help" << std::endl;
-            exit(1);
-        }
-        ++i;
-        std::cout << "Parm: " << name << " " << value_s << "\n";
+    }
+    if (option_expected == false) {
+        std::cerr << "Argument expected for:" << current_option.name << std::endl;
+        exit(1);
     }
 }
 
@@ -228,7 +265,8 @@ double external(const std::vector<double>& x_i, const std::string& command)
     return result;
 }
 
-std::string strvecdbl(const std::vector<double>& v)
+    template<typename T>
+std::string strvecT(const std::vector<T>& v)
 {
     std::stringstream ss;
 
@@ -242,6 +280,13 @@ std::string strvecdbl(const std::vector<double>& v)
     }
     ss << "]";
     return ss.str();
+}
+
+    template<typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
+{
+    os << strvecT(v);
+    return os;
 }
 
 std::string strvechilo(const std::vector<std::pair<double, double>>& v)
@@ -258,6 +303,34 @@ std::string strvechilo(const std::vector<std::pair<double, double>>& v)
     }
     ss << "]";
     return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+        const std::vector<std::pair<double, double>>& v)
+{
+    os << strvechilo(v);
+    return os;
+}
+
+std::vector< unsigned > make_divisions(unsigned n,
+        const std::vector<unsigned> divisions)
+{
+    std::vector< unsigned > v;
+
+    if (n == 1 && divisions.size() == 1) {
+        for (unsigned i = 0; i < n; i++) {
+            v = divisions;
+        }
+    } else if (n == 1 && divisions.size() > 1) {
+        v = divisions;
+    } else if (n > 1 && divisions.size() == 1) {
+        for (unsigned i = 0; i < n; i++) {
+            v.push_back(divisions[0]);
+        }
+    } else {
+        throw std::invalid_argument("mismatch between divisions and variables");
+    }
+    return v;
 }
 
 std::vector< std::pair<double, double> > make_domains(
@@ -281,6 +354,18 @@ std::vector< std::pair<double, double> > make_domains(
         for (unsigned i = 0; i < n; i++) {
             v.push_back(std::pair<double, double>{lo[0], hi[i]});
         }
+    } else if (n == 1 && lo.size() == hi.size()) {
+        for (unsigned i = 0; i < lo.size(); i++) {
+            v.push_back(std::pair<double, double>{lo[i], hi[i]});
+        }
+    } else if (n == 1 && hi.size() == 1) {
+        for (unsigned i = 0; i < lo.size(); i++) {
+            v.push_back(std::pair<double, double>{lo[1], hi[0]});
+        }
+    } else if (n == 1 && lo.size() == 1) {
+        for (unsigned i = 0; i < hi.size(); i++) {
+            v.push_back(std::pair<double, double>{lo[0], hi[i]});
+        }
     } else {
         throw std::invalid_argument("lo and hi must either have 1 value "
                 "or the same number of values as the number of variables.");
@@ -296,12 +381,14 @@ struct opt_result {
 
 struct opt_parameters {
     std::string method = "grid";
+    std::string func_name = "sphere";
     opt_func func = sphere;
+    int variables = 1;
     std::vector < std::pair < double, double > > domains  =  { {-100.0, 100.0} } ;
     double error = 0.1;
     std::string command = "";
     bool verbose = false;
-    unsigned max_threads = 1;
+    unsigned threads = std::thread::hardware_concurrency();
     unsigned iterations = 1000;
     std::vector<unsigned> divisions = {5};
     unsigned generations = 3;
@@ -321,8 +408,9 @@ class Optimization {
             for (auto &d: p.domains) {
                 domains_.push_back({d.first, d.second});
             }
+            original_domains_ = domains_;
             error_ = p.error;
-            max_threads_ = p.max_threads;
+            threads_ = p.threads;
             iterations_ = p.iterations;
             if (p.method == "grid") {
                 if (p.divisions.size() > 1 && p.divisions.size() != p.domains.size()) {
@@ -380,8 +468,8 @@ class Optimization {
                 std::vector<std::pair<double, std::vector<double>>>& results) {
             std::vector<double> begin(domains_.size());
             for (size_t i = 0; i < domains_.size(); i++) {
-                begin[i] = domains_[i].first + (double) pass_no / passes_
-                    * step_size[i];
+                begin[i] = std::min(domains_[i].first + (double) pass_no / passes_
+                        * step_size[i], original_domains_[i].second);
             }
             std::vector<double> best(domains_.size());
             double lowest = std::numeric_limits<float>::max();
@@ -390,7 +478,7 @@ class Optimization {
                 for (size_t j = 0; j < i; j++) {
                     v[j] = best[j];
                 }
-                v[i] =  begin[i] ;
+                v[i] =  begin[i];
                 for (size_t j = i + 1; j < domains_.size() && lowest > error_; j++) {
                     std::uniform_real_distribution<double>
                         dist(domains_[j].first, domains_[j].second);
@@ -399,14 +487,12 @@ class Optimization {
                 lowest = std::numeric_limits<float>::max();
                 for (size_t j = 0; j < divisions_[i]; j++) {
                     double f = exec_func(v);
-                    std::cout << "L: " << lowest << " " << f << " " << strvecdbl(v) << "\n";
                     if (f < lowest) {
                         lowest = f;
                         best = v;
                     }
-                    v[i] += step_size[i];
+                    v[i] = std::min(v[i] + step_size[i], original_domains_[i].second);
                 }
-                std::cout << "X " << lowest << " " << strvecdbl(best) << "\n";
             }
             results[thread_no] = {lowest, best};
         }
@@ -421,8 +507,8 @@ class Optimization {
                 if (g > 0) {
                     for (size_t i = 0; i < domains_.size(); i++) {
                         domains_[i] = {
-                            best_ever[i] - step_size[i],
-                            best_ever[i] + step_size[i]
+                            std::max(best_ever[i] - step_size[i], original_domains_[i].first),
+                            std::min(best_ever[i] + step_size[i], original_domains_[i].second)
                         };
                     }
                 }
@@ -432,10 +518,10 @@ class Optimization {
                 }
                 unsigned p = 0;
                 while (p < passes_ && lowest_ever > error_) {
-                    std::vector<std::pair<double, std::vector<double>>> results(max_threads_);
+                    std::vector<std::pair<double, std::vector<double>>> results(std::min(threads_, passes_-p));
                     std::vector<std::thread> threads;
                     unsigned j = 0;
-                    while (j < max_threads_ && p < passes_ && lowest_ever > error_) {
+                    while (j < threads_ && p < passes_ && lowest_ever > error_) {
                         threads.push_back(std::thread([this, p, j, step_size, &results] {
                                     single_pass(p, j, step_size, results);
                                     }));
@@ -464,29 +550,37 @@ class Optimization {
         opt_func func_;
         std::string command_;
         std::vector< std::pair<double, double> > domains_;
+        std::vector< std::pair<double, double> > original_domains_;
         double error_;
-        unsigned max_threads_;
+        unsigned threads_;
         unsigned iterations_;
         std::vector<unsigned> divisions_ = {};
         unsigned generations_;
         unsigned passes_;
 };
 
+void print_parameters(const opt_parameters& parameters)
+{
+    std::cout << "method: " << parameters.method << "\n";
+    std::cout << "function: " << parameters.func_name << "\n";
+    std::cout << "command: " << parameters.command << "\n";
+    std::cout << "variables: " << parameters.variables << "\n";
+    std::cout << "domains: " << parameters.domains << "\n";
+    std::cout << "error: " << parameters.error << "\n";
+    std::cout << "verbose: " << parameters.verbose << "\n";
+    std::cout << "threads: " << parameters.threads << "\n";
+    std::cout << "iterations: " << parameters.iterations << "\n";
+    std::cout << "divisions: " << parameters.divisions << "\n";
+    std::cout << "generations: " << parameters.generations << "\n";
+    std::cout << "passes: " << parameters.passes << "\n";
+}
+
 int main(int argc, char *argv[])
 {
-    bool verbose = false;
-    int variables = 0;
-    std::string func = "external";
-    double lo = -100.0;
-    double hi = 100.0;
-    int divisions = 5;
-    int generations = 3;
-    int passes = 1;
-    int threads = 1;
-    int iterations = 1000;
-    double error = 0.01;
-    std::string method = "grid";
-    std::string command = "./sphere";
+    std::vector<double> lo = {-100.0};
+    std::vector<double> hi = {100.0};
+    std::vector<unsigned> divisions = {5};
+    opt_parameters parameters;
 
     // Command line options
     static std::vector<Option> options =
@@ -495,107 +589,110 @@ int main(int argc, char *argv[])
             "verbose",
             "v",
             "verbose output",
-            &verbose,
+            &parameters.verbose,
+            '0'
         },
         {
             "variables",
             "n",
             "number of variables",
-            &variables
+            &parameters.variables
         },
         {
             "function",
             "f",
             "function to optimize",
-            &func,
+            &parameters.func_name
         },
         {
             "lo",
             "l",
             "lowest number in domain",
-            &lo
+            &lo,
+            '+'
         },
         {
             "hi",
             "hi",
             "highest number in domain",
-            &hi
+            &hi,
+            '+'
         },
         {
             "divisions",
             "d",
             "number of divisions per variable",
-            &divisions
+            &divisions,
+            '*'
         },
         {
             "generations",
             "g",
             "number of generations for grid method",
-            &generations
+            &parameters.generations
         },
         {
             "passes",
             "p",
             "number of passes per generation for grid method",
-            &passes
+            &parameters.passes
         },
         {
             "iter",
             "i",
             "number of iterations for random method",
-            &iterations
+            &parameters.iterations
         },
         {
             "error",
             "e",
             "stop if error <= this value",
-            &error
+            &parameters.error
         },
         {
             "method",
             "m",
             "optimization method",
-            &method
+            &parameters.method
         },
         {
             "command",
             "c",
             "external program to run",
-            &error
+            &parameters.command
+        },
+        {
+            "threads",
+            "t",
+            "suggested number of parallel threads",
+            &parameters.threads
         }
     };
 
     process_options(argc, argv, options,
             "Optimize functions using grid method");
 
-    opt_parameters parameters;
-    parameters.method = method;
-    if (func == "sphere") {
-        parameters.func = sphere;
-    } else if (func == "rastrigin") {
-        parameters.func = rastrigin;
-    } else if (func == "flipflop") {
-        parameters.func = flipflop;
-    }
-    for (int i = 0; i < variables; i++) {
-        parameters.divisions.push_back(divisions);
-    }
-    parameters.domains = make_domains(variables, {lo}, {hi});
-    parameters.error = error;
-    parameters.verbose = verbose;
-    parameters.max_threads = threads;
-    parameters.iterations = iterations;
-    parameters.generations = generations;
-    parameters.passes = passes;
 
+    if (parameters.func_name == "sphere") {
+        parameters.func = sphere;
+    } else if (parameters.func_name == "rastrigin") {
+        parameters.func = rastrigin;
+    } else if (parameters.func_name == "flipflop") {
+        parameters.func = flipflop;
+    } else if (parameters.func_name == "external") {
+        parameters.func = external;
+    };
+    parameters.divisions = make_divisions(parameters.variables, {divisions});
+    parameters.domains = make_domains(parameters.variables, lo, hi);
+
+    if (parameters.verbose) {
+        print_parameters(parameters);
+    }
 
     Optimization og(parameters);
     opt_result result = og.optimize();
-    std::cout << result.lowest << "\n";
-    std::cout << strvecdbl(result.best) << "\n";
-    std::cout << result.calls << "\n";
 
-    std::cout << "Best vector: " << strvecdbl(result.best) << "\n";
+    std::cout << "Best vector: " << result.best << "\n";
     std::cout << "Minimum found: " << result.lowest << "\n";
     std::cout << "Function calls: " << result.calls << "\n";
 

@@ -6,4 +6,4 @@ grid-debug: grid.cpp
 	$(CPP) -g -Wall grid.cpp -o grid-debug $(FLAGS)
 
 grid-release: grid.cpp
-	$(CPP) -O3 -Wall grid.cpp -o grid-release
+	$(CPP) -O3 -Wall grid.cpp -o grid-release $(FLAGS)

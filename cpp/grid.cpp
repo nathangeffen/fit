@@ -1,5 +1,5 @@
 /*
- * Reference implementation of Grid Evolve minimization algorithm.
+ * Implementation of Grid Evolve minimization algorithm.
  * See README.md for explanation of algorithm.
  *
  * This program is free software: you can redistribute it and/or modify it
@@ -34,7 +34,6 @@
 #include <unordered_map>
 #include <vector>
 #include <boost/process.hpp>
-#include <boost/thread.hpp>
 
 namespace bp = boost::process;
 
@@ -135,7 +134,7 @@ std::vector<unsigned> strvectounsvec(const std::vector<std::string> vals)
 }
 
 
-void set_option(Option & option, std::string & value)
+void set_option(Option & option, const std::string & value)
 {
     std::cerr << option.name << " " << value << "\n";
     if (option.value.type() == typeid(double *)) {
@@ -161,52 +160,62 @@ void set_option(Option & option, std::string & value)
     }
 }
 
+void process_single_option(std::vector<Option>& options, Option& current_option, bool& option_expected,
+        const std::string& arg, const std::string& prog_name, const char *prog_desc = NULL)
+{
+    std::string name, value_s;
+    unsigned start = 0;
+    if (option_expected) {
+        if (arg == "-h" || arg == "--help" || arg == "help") {
+            print_help(options, prog_name.c_str(), prog_desc);
+            exit(0);
+        }
+        if (arg[0] == '-') {
+            if (arg.size() > 1 && arg[1] == '-') {
+                start = 2; // long option
+            } else {
+                start = 1; // short option
+            }
+        } else {
+            throw std::invalid_argument("Expected option but got " + arg);
+        }
+        name = arg.substr(start);
+        bool found = false;
+        for (auto & option: options) {
+            if ((start == 2 && option.name == name) ||
+                    (start == 1 && option.short_name == name)) {
+                found = true;
+                if (option.num == '0') {
+                    value_s = option.default_value;
+                    set_option(option, value_s);
+                } else {
+                    option_expected = false;
+                }
+                current_option = option;
+                break;
+            }
+        }
+        if (!found) {
+            std::cerr << "Unknown option:" << arg << std::endl;
+            exit(1);
+        }
+    } else {
+        set_option(current_option, arg);
+        option_expected = true;
+    }
+}
+
+
 void process_options(int argc, char *argv[], std::vector<Option>& options,
         const char *prog_desc = NULL)
 {
     std::vector<std::string> arguments;
     bool option_expected = true;
-    unsigned start = 0;
     std::string arg, name, value_s;
     Option current_option;
     process_command_options(argc, argv, arguments);
     for (auto& arg: arguments) {
-        if (option_expected) {
-            if (arg == "-h" || arg == "--help" || arg == "help") {
-                print_help(options, argv[0], prog_desc);
-                exit(0);
-            }
-            if (arg[0] == '-') {
-                if (arg.size() > 1 && arg[1] == '-') {
-                    start = 2; // long option
-                } else {
-                    start = 1; // short option
-                }
-            }
-            name = arg.substr(start);
-            bool found = false;
-            for (auto & option: options) {
-                if ((start == 2 && option.name == name) ||
-                        (start == 1 && option.short_name == name)) {
-                    found = true;
-                    if (option.num == '0') {
-                        value_s = option.default_value;
-                        set_option(option, value_s);
-                    } else {
-                        option_expected = false;
-                    }
-                    current_option = option;
-                    break;
-                }
-            }
-            if (!found) {
-                std::cerr << "Unknown option:" << arg << std::endl;
-                exit(1);
-            }
-        } else {
-            set_option(current_option, arg);
-            option_expected = true;
-        }
+        process_single_option(options, current_option, option_expected, arg, argv[0], prog_desc);
     }
     if (option_expected == false) {
         std::cerr << "Argument expected for:" << current_option.name << std::endl;

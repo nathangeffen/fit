@@ -39,151 +39,49 @@
 #include <tuple>
 #include <unordered_map>
 
+typedef std::function<double(const std::vector<double>, const std::string &)> opt_func;
+
+struct opt_result {
+    double lowest;
+    std::vector<double> best;
+    unsigned calls;
+};
+
+double sphere(const std::vector<double> &v, const std::string& s);
+double external(const std::vector<double>& x_i, const std::string& command);
+double rastrigin(const std::vector<double> &v, const std::string& s);
+double flipflop(const std::vector<double> &v, const std::string& s);
+
+std::vector< unsigned > make_divisions(unsigned, const std::vector<unsigned>);
+std::vector< std::pair<double, double> > make_domains(
+        unsigned, std::vector<double>, std::vector<double>);
+
+struct opt_parameters {
+    std::string method = "grid";
+    std::string func_name = "sphere";
+    opt_func func = sphere;
+    int variables = 1;
+    std::vector < std::pair < double, double > > domains  =  { {-100.0, 100.0} } ;
+    double error = 0.1;
+    std::string command = "";
+    bool verbose = false;
+    unsigned threads = std::thread::hardware_concurrency();
+    unsigned iterations = 1000;
+    std::vector<unsigned> divisions = {5};
+    unsigned generations = 3;
+    unsigned passes = 1;
+};
+
 class Optimization {
     public:
-        Optimization(opt_parameters &p) {
-            func_calls_ = 0;
-            method_ = p.method;
-            func_ = p.func;
-            command_ = p.command;
-            for (auto &d: p.domains) {
-                domains_.push_back({d.first, d.second});
-            }
-            original_domains_ = domains_;
-            error_ = p.error;
-            threads_ = p.threads;
-            iterations_ = p.iterations;
-            if (p.method == "grid") {
-                if (p.divisions.size() > 1 && p.divisions.size() != p.domains.size()) {
-                    throw std::invalid_argument(
-                            "Number of divisions must be 1 or equal to "
-                            "number of domains.");
-                }
-                divisions_ = p.divisions;
-            }
-            generations_ = p.generations;
-            passes_ = p.passes;
-        }
-
-        double exec_func(std::vector<double> x) {
-            func_calls_++;
-            return func_(x, command_);
-        }
-
-        opt_result optimize() {
-            if (method_ == "random") {
-                return random();
-            } else {
-                return grid();
-            }
-        }
-
-        opt_result random() {
-            bool lowest_found = false;
-            double lowest = std::numeric_limits<float>::max();
-            std::vector<double> best;
-            for (unsigned i = 0; i < iterations_ && lowest_found == false; i++) {
-                std::vector<double> v;
-                for (auto &d: domains_) {
-                    std::uniform_real_distribution<double>
-                        dist(d.first, d.second);
-                    v.push_back(dist(rng));
-                }
-                double d = exec_func(v);
-                if (d < lowest) {
-                    lowest = d;
-                    best = v;
-                    if (lowest < error_) {
-                        lowest_found = true;
-                        break;
-                    }
-                }
-            }
-            return {
-                lowest, best, func_calls_
-            };
-        }
-
+        Optimization(opt_parameters &p);
+        double exec_func(std::vector<double> x);
+        opt_result optimize();
+        opt_result random();
         void single_pass(unsigned pass_no, unsigned thread_no,
                 const std::vector<double> step_size,
-                std::vector<std::pair<double, std::vector<double>>>& results) {
-            std::vector<double> begin(domains_.size());
-            for (size_t i = 0; i < domains_.size(); i++) {
-                begin[i] = std::min(domains_[i].first + (double) pass_no / passes_
-                        * step_size[i], original_domains_[i].second);
-            }
-            std::vector<double> best(domains_.size());
-            double lowest = std::numeric_limits<float>::max();
-            for (size_t i = 0; i < domains_.size() && lowest > error_; i++) {
-                std::vector<double> v(domains_.size());
-                for (size_t j = 0; j < i; j++) {
-                    v[j] = best[j];
-                }
-                v[i] =  begin[i];
-                for (size_t j = i + 1; j < domains_.size() && lowest > error_; j++) {
-                    std::uniform_real_distribution<double>
-                        dist(domains_[j].first, domains_[j].second);
-                    v[j] = dist(rng);
-                }
-                lowest = std::numeric_limits<float>::max();
-                for (size_t j = 0; j < divisions_[i]; j++) {
-                    double f = exec_func(v);
-                    if (f < lowest) {
-                        lowest = f;
-                        best = v;
-                    }
-                    v[i] = std::min(v[i] + step_size[i], original_domains_[i].second);
-                }
-            }
-            results[thread_no] = {lowest, best};
-        }
-
-
-        opt_result grid() {
-            std::vector<double> best_ever(domains_.size());
-            double lowest_ever = std::numeric_limits<float>::max();
-            std::vector<double> step_size(domains_.size());
-
-            for (unsigned g = 0; g < generations_ && lowest_ever > error_; g++) {
-                if (g > 0) {
-                    for (size_t i = 0; i < domains_.size(); i++) {
-                        domains_[i] = {
-                            std::max(best_ever[i] - step_size[i], original_domains_[i].first),
-                            std::min(best_ever[i] + step_size[i], original_domains_[i].second)
-                        };
-                    }
-                }
-                for (size_t i = 0; i < step_size.size(); i++) {
-                    step_size[i] = (domains_[i].second - domains_[i].first) /
-                        divisions_[i];
-                }
-                unsigned p = 0;
-                while (p < passes_ && lowest_ever > error_) {
-                    std::vector<std::pair<double, std::vector<double>>> results(std::min(threads_, passes_-p));
-                    std::vector<std::thread> threads;
-                    unsigned j = 0;
-                    while (j < threads_ && p < passes_ && lowest_ever > error_) {
-                        threads.push_back(std::thread([this, p, j, step_size, &results] {
-                                    single_pass(p, j, step_size, results);
-                                    }));
-                        j++;
-                        p++;
-                    }
-                    for (auto& t: threads) {
-                        t.join();
-                    }
-                    for (auto &r: results) {
-                        if (r.first < lowest_ever) {
-                            lowest_ever = r.first;
-                            best_ever = r.second;
-                        }
-                    }
-                }
-            }
-            return {
-                lowest_ever, best_ever, func_calls_
-            };
-        }
+                std::vector<std::pair<double, std::vector<double>>>& results);
+        opt_result grid();
 
     private:
         std::string method_;

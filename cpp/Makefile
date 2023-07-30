@@ -1,10 +1,18 @@
 CPP = g++
-CCFLAGS=-std=c++17
+CCFLAGS = -Wall -pedantic -std=c++17
+LIBS = /usr/lib/x86_64-linux-gnu/libboost_program_options.so
 
-grid-debug: grid.cpp main.cpp
-	$(CPP) -g -pedantic -Wall -c grid.cpp $(CCFLAGS)
-	$(CPP) -g -pedantic -Wall -c main.cpp $(CCFLAGS)
-	$(CPP) main.o grid.o -o grid-debug
+grid-debug: grid.o main.o
+	$(CPP) main.o grid.o $(LIBS) -o grid-debug
 
-grid-release: grid.cpp
-	$(CPP) -O3 -Wall -pedantic main.cpp grid.cpp -o grid-release $(CCFLAGS)
+grid.o: grid.cpp grid.hpp
+	$(CPP) -g -c $(CCFLAGS) grid.cpp
+
+main.o: main.cpp grid.hpp
+	$(CPP) -g -c $(CCFLAGS) main.cpp
+
+grid-release: main.cpp grid.cpp grid.hpp
+	$(CPP) -O3 -Wall -pedantic main.cpp grid.cpp $(LIBS) -o grid-release $(CCFLAGS)
+
+clean:
+	rm -f *.o grid-debug grid-release

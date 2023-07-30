@@ -19,67 +19,113 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <boost/process.hpp>
+#include <boost/program_options.hpp>
 #include "grid.hpp"
 
-namespace bp = boost::process;
+namespace po = boost::program_options;
 
 // Process command line options
 
-struct Option {
-    std::string name;
-    std::string short_name;
-    std::string description;
-    std::any value;
-    char num = '1';
-    std::string default_value = "true";
-};
 
-std::ostream& operator<<(std::ostream& os, const Option& option)
+void process_options(int argc, char *argv[],
+        opt_parameters & parameters)
 {
-    os << option.name << ": " << option.description;
-    os << " (default: ";
-    if (option.value.type() == typeid(bool *)) {
-        os << *std::any_cast<bool *>(option.value);
-    } else if (option.value.type() == typeid(unsigned *)) {
-        os << *std::any_cast<unsigned *>(option.value);
-    } else if (option.value.type() == typeid(int *)) {
-        os << *std::any_cast<int *>(option.value);
-    } else if (option.value.type() == typeid(double *)) {
-        os << *std::any_cast<double *>(option.value);
-    } else {
-        os << *std::any_cast<std::string *>(option.value);
+    po::options_description generic(
+            "Try to optimize a function");
+    generic.add_options()
+        ("help,h", "produce help message")
+        ("verbose,v", "verbose output")
+        ("variables,n", po::value<unsigned>(), "number of variables")
+        ("method,m", po::value<std::string>(), "optimization method")
+        ("function,f", po::value<std::string>(),
+         "function to optimize")
+        ("command,c", po::value<std::string>(),
+         "command line for when function==external")
+        ("error,e", po::value<double>(),
+         "minimum error stop condition")
+        ("threads,t", po::value<unsigned>(), "number of threads")
+        ;
+
+    po::options_description grid(
+            "Grid evolve method");
+    grid.add_options()
+        ("generations,g", po::value<unsigned>(),
+         "number of generations")
+        ("passes,p", po::value<unsigned>(),
+         "number of passes")
+        ("lo,l", po::value<std::vector<double>>(),
+         "lowest numbers in domains")
+        ("hi", po::value<std::vector<double>>(),
+         "highest numbers in domains")
+        ("divisions,d", po::value<std::vector<unsigned>>(),
+         "number of divisions within each grid")
+        ;
+
+     po::options_description random(
+            "Random method");
+    random.add_options()
+        ("iterations,i", po::value<unsigned>(),
+         "maximum number of iterations")
+        ;
+
+    po::options_description cmdline_options;
+    cmdline_options.add(generic).add(grid).add(random);
+
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, cmdline_options), vm);
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        std::cout << cmdline_options << "\n";
+        exit(EXIT_SUCCESS);
     }
-    os << ')';
-    return os;
-}
 
-static void print_help(const std::vector<Option>& options,
-        const char *prog_name,
-        const char *description)
-{
-    std::cout << prog_name;
-    if (description)
-        std::cout << ": " << description;
-    std::cout << std::endl;
-
-    std::cout << "Syntax:" << std::endl;
-    std::cout << prog_name << " ";
-    for (auto & option: options)
-        std::cout << "[-" << option.name << "=<value>] ";
-    std::cout << std::endl;
-
-    std::cout << "\tOptions:" << std::endl;
-    for (auto &option: options) {
-        std::cout << "\t-" << option << std::endl;
+    if (vm.count("verbose")) {
+        parameters.verbose = true;
     }
-}
 
-void process_command_options(int argc, char *argv[],
-        std::vector<std::string>& arguments)
-{
-    for (int i = 1; i < argc; i++) {
-        arguments.push_back(std::string(argv[i]));
+    if (vm.count("variables")) {
+        parameters.variables = vm["variables"].as<unsigned>();
+    }
+
+    if (vm.count("method")) {
+        parameters.method = vm["method"].as<std::string>();
+    }
+
+    if (vm.count("function")) {
+        parameters.func_name = vm["function"].as<std::string>();
+    }
+
+    if (vm.count("command")) {
+        parameters.command = vm["command"].as<std::string>();
+    }
+
+    if (vm.count("error")) {
+        parameters.error = vm["error"].as<double>();
+    }
+
+    if (vm.count("generations")) {
+        parameters.generations = vm["generations"].as<unsigned>();
+    }
+
+    if (vm.count("passes")) {
+        parameters.passes = vm["passes"].as<unsigned>();
+    }
+
+    if (vm.count("lo")) {
+        parameters.lo = vm["lo"].as<std::vector<double>>();
+    }
+
+    if (vm.count("hi")) {
+        parameters.hi = vm["hi"].as<std::vector<double>>();
+    }
+
+    if (vm.count("divisions")) {
+        parameters.divisions = vm["divisions"].as<std::vector<unsigned>>();
+    }
+
+    if (vm.count("iterations")) {
+        parameters.iterations = vm["iterations"].as<unsigned>();
     }
 }
 
@@ -103,16 +149,16 @@ split(const std::string& str, char delim=':')
 }
 
 
-std::vector<double> strvectodblvec(const std::vector<std::string> vals)
+std::vector<double> strvectodblvec(const std::vector<std::string> &vals)
 {
-    std::vector<double> result;
-    for (auto& v: vals) {
-        result.push_back(std::stod(v));
+    std::vector<double> result(vals.size());
+    for (size_t i = 0; i < vals.size(); i++) {
+        result[i] = std::stod(vals[i]);
     }
     return result;
 }
 
-std::vector<unsigned> strvectounsvec(const std::vector<std::string> vals)
+std::vector<unsigned> strvectounsvec(const std::vector<std::string> &vals)
 {
     std::vector<unsigned> result;
     for (auto& v: vals) {
@@ -169,95 +215,6 @@ std::ostream& operator<<(std::ostream& os,
 }
 
 
-void set_option(Option & option, const std::string & value)
-{
-    std::cerr << option.name << " " << value << "\n";
-    if (option.value.type() == typeid(double *)) {
-        *(std::any_cast < double *>(option.value)) = std::stod(value);
-    } else if (option.value.type() == typeid(unsigned *)) {
-        *(std::any_cast < unsigned *>(option.value)) =
-            std::stoul(value);
-    } else if (option.value.type() == typeid(int *)) {
-        *(std::any_cast < int *>(option.value)) = std::stoi(value);
-    } else if (option.value.type() == typeid(bool *)) {
-        *(std::any_cast < bool *>(option.value)) =
-            (value == "true") ? true : false;
-    } else if (option.num == '1') {
-        *(std::any_cast < std::string * >(option.value)) = value;
-    } else if (option.num == '+') { // multiple doubles separated by ':'
-        std::vector<std::string> strarr = split(value);
-        *(std::any_cast< std::vector<double> * >(option.value)) = strvectodblvec(strarr);
-    } else if (option.num == '*') { // multiple unsigned separated by ':'
-        std::vector<std::string> strarr = split(value);
-        *(std::any_cast< std::vector<unsigned> * >(option.value)) = strvectounsvec(strarr);
-    } else {
-        throw std::invalid_argument("unknown type for command line option " + option.name + ": " + value);
-    }
-}
-
-void process_single_option(std::vector<Option>& options, Option& current_option, bool& option_expected,
-        const std::string& arg, const std::string& prog_name, const char *prog_desc = NULL)
-{
-    std::string name, value_s;
-    unsigned start = 0;
-    if (option_expected) {
-        if (arg == "-h" || arg == "--help" || arg == "help") {
-            print_help(options, prog_name.c_str(), prog_desc);
-            exit(0);
-        }
-        if (arg[0] == '-') {
-            if (arg.size() > 1 && arg[1] == '-') {
-                start = 2; // long option
-            } else {
-                start = 1; // short option
-            }
-        } else {
-            throw std::invalid_argument("Expected option but got " + arg);
-        }
-        name = arg.substr(start);
-        bool found = false;
-        for (auto & option: options) {
-            if ((start == 2 && option.name == name) ||
-                    (start == 1 && option.short_name == name)) {
-                found = true;
-                if (option.num == '0') {
-                    value_s = option.default_value;
-                    set_option(option, value_s);
-                } else {
-                    option_expected = false;
-                }
-                current_option = option;
-                break;
-            }
-        }
-        if (!found) {
-            std::cerr << "Unknown option:" << arg << std::endl;
-            exit(1);
-        }
-    } else {
-        set_option(current_option, arg);
-        option_expected = true;
-    }
-}
-
-
-void process_options(int argc, char *argv[], std::vector<Option>& options,
-        const char *prog_desc = NULL)
-{
-    std::vector<std::string> arguments;
-    bool option_expected = true;
-    std::string arg, name, value_s;
-    Option current_option;
-    process_command_options(argc, argv, arguments);
-    for (auto& arg: arguments) {
-        process_single_option(options, current_option, option_expected, arg, argv[0], prog_desc);
-    }
-    if (option_expected == false) {
-        std::cerr << "Argument expected for:" << current_option.name << std::endl;
-        exit(1);
-    }
-}
-
 void print_parameters(const opt_parameters& parameters)
 {
     std::cout << "method: " << parameters.method << "\n";
@@ -276,101 +233,15 @@ void print_parameters(const opt_parameters& parameters)
 
 int main(int argc, char *argv[])
 {
-    std::vector<double> lo = {-100.0};
-    std::vector<double> hi = {100.0};
-    std::vector<unsigned> divisions = {5};
     opt_parameters parameters;
 
-    // Command line options
-    static std::vector<Option> options =
-    {
-        {
-            "verbose",
-            "v",
-            "verbose output",
-            &parameters.verbose,
-            '0'
-        },
-        {
-            "variables",
-            "n",
-            "number of variables",
-            &parameters.variables
-        },
-        {
-            "function",
-            "f",
-            "function to optimize",
-            &parameters.func_name
-        },
-        {
-            "lo",
-            "l",
-            "lowest number in domain",
-            &lo,
-            '+'
-        },
-        {
-            "hi",
-            "hi",
-            "highest number in domain",
-            &hi,
-            '+'
-        },
-        {
-            "divisions",
-            "d",
-            "number of divisions per variable",
-            &divisions,
-            '*'
-        },
-        {
-            "generations",
-            "g",
-            "number of generations for grid method",
-            &parameters.generations
-        },
-        {
-            "passes",
-            "p",
-            "number of passes per generation for grid method",
-            &parameters.passes
-        },
-        {
-            "iter",
-            "i",
-            "number of iterations for random method",
-            &parameters.iterations
-        },
-        {
-            "error",
-            "e",
-            "stop if error <= this value",
-            &parameters.error
-        },
-        {
-            "method",
-            "m",
-            "optimization method",
-            &parameters.method
-        },
-        {
-            "command",
-            "c",
-            "external program to run",
-            &parameters.command
-        },
-        {
-            "threads",
-            "t",
-            "suggested number of parallel threads",
-            &parameters.threads
-        }
-    };
-
-    process_options(argc, argv, options,
-            "Optimize functions using grid method");
-
+    try {
+        process_options(argc, argv, parameters);
+    } catch (const std::exception& e) {
+        std::cerr << "Error on command line. Try:\n" << argv[0]
+            << " --help \n";
+        exit(EXIT_FAILURE);
+    }
 
     if (parameters.func_name == "sphere") {
         parameters.func = sphere;
@@ -381,8 +252,13 @@ int main(int argc, char *argv[])
     } else if (parameters.func_name == "external") {
         parameters.func = external;
     };
-    parameters.divisions = make_divisions(parameters.variables, {divisions});
-    parameters.domains = make_domains(parameters.variables, lo, hi);
+    try {
+        make_divisions(parameters);
+        make_domains(parameters);
+    } catch(const std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        exit(EXIT_FAILURE);
+    }
 
     if (parameters.verbose) {
         print_parameters(parameters);

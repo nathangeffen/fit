@@ -22,7 +22,6 @@
 #ifndef GRID_HPP
 #define GRID_HPP
 
-#include <any>
 #include <atomic>
 #include <cfloat>
 #include <cmath>
@@ -52,15 +51,13 @@ double external(const std::vector<double>& x_i, const std::string& command);
 double rastrigin(const std::vector<double> &v, const std::string& s);
 double flipflop(const std::vector<double> &v, const std::string& s);
 
-std::vector< unsigned > make_divisions(unsigned, const std::vector<unsigned>);
-std::vector< std::pair<double, double> > make_domains(
-        unsigned, std::vector<double>, std::vector<double>);
-
 struct opt_parameters {
     std::string method = "grid";
     std::string func_name = "sphere";
     opt_func func = sphere;
-    int variables = 1;
+    unsigned variables = 1;
+    std::vector <double> lo = {-100.0};
+    std::vector <double> hi = {100.0};
     std::vector < std::pair < double, double > > domains  =  { {-100.0, 100.0} } ;
     double error = 0.1;
     std::string command = "";
@@ -72,14 +69,17 @@ struct opt_parameters {
     unsigned passes = 1;
 };
 
+void make_divisions(opt_parameters &parameters);
+void make_domains(opt_parameters &parameters);
+
 class Optimization {
     public:
-        Optimization(opt_parameters &p);
+        explicit Optimization(opt_parameters &p);
         double exec_func(std::vector<double> x);
         opt_result optimize();
         opt_result random();
         void single_pass(unsigned pass_no, unsigned thread_no,
-                const std::vector<double> step_size,
+                const std::vector<double> &step_size,
                 std::vector<std::pair<double, std::vector<double>>>& results);
         opt_result grid();
 

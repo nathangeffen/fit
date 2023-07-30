@@ -5,7 +5,7 @@
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation, either version 3 of the License, or (at your
- * option) any later version.
+ -f * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,7 +16,6 @@
  * with this program. If not, see <https://www.gnu.org/licenses/>.  """
  **/
 
-#include <any>
 #include <atomic>
 #include <cfloat>
 #include <cmath>
@@ -85,65 +84,67 @@ double external(const std::vector<double>& x_i, const std::string& command)
     return result;
 }
 
-std::vector< unsigned > make_divisions(unsigned n,
-        const std::vector<unsigned> divisions)
+void make_divisions(opt_parameters &parameters)
 {
-    std::vector< unsigned > v;
+    const auto elems = {(size_t) parameters.variables, parameters.divisions.size(),
+            parameters.domains.size(), parameters.lo.size(), parameters.hi.size()};
+    size_t n = *std::max_element(elems.begin(), elems.end());
 
-    if (n == 1 && divisions.size() == 1) {
+    if (n == 1 && parameters.divisions.size() >= 1) {
+        ;
+    } else if (n > 1 && parameters.divisions.size() == 1) {
+        std::vector< unsigned > v(n);
         for (unsigned i = 0; i < n; i++) {
-            v = divisions;
+            v[i] = parameters.divisions[0];
         }
-    } else if (n == 1 && divisions.size() > 1) {
-        v = divisions;
-    } else if (n > 1 && divisions.size() == 1) {
-        for (unsigned i = 0; i < n; i++) {
-            v.push_back(divisions[0]);
-        }
+        parameters.divisions = v;
+    } else if (n == parameters.divisions.size()) {
+        ;
     } else {
         throw std::invalid_argument("mismatch between divisions and variables");
     }
-    return v;
 }
 
-std::vector< std::pair<double, double> > make_domains(
-        unsigned n, std::vector<double> lo, std::vector<double> hi)
+void make_domains(opt_parameters &parameters)
 {
-    std::vector< std::pair<double, double> > v;
+    const auto elems = {(size_t) parameters.variables, parameters.divisions.size(),
+            parameters.domains.size(), parameters.lo.size(), parameters.hi.size()};
+    size_t n = *std::max_element(elems.begin(), elems.end());
+    std::vector< std::pair<double, double> > v(n);
 
-    if (lo.size() == 1 && hi.size() == 1) {
+    if (parameters.lo.size() == 1 && parameters.hi.size() == 1) {
         for (unsigned i = 0; i < n; i++) {
-            v.push_back(std::pair<double, double>{lo[0], hi[0]});
+            v[i] = std::pair<double, double>{parameters.lo[0], parameters.hi[0]};
         }
-    } else if (lo.size() == n && hi.size() == n) {
+    } else if (parameters.lo.size() == n && parameters.hi.size() == n) {
         for (unsigned i = 0; i < n; i++) {
-            v.push_back(std::pair<double, double>{lo[i], hi[i]});
+            v[i] = std::pair<double, double>{parameters.lo[i], parameters.hi[i]};
         }
-    } else if (lo.size() == n && hi.size() == 1) {
+    } else if (parameters.lo.size() == n && parameters.hi.size() == 1) {
         for (unsigned i = 0; i < n; i++) {
-            v.push_back(std::pair<double, double>{lo[i], hi[0]});
+            v[i] = std::pair<double, double>{parameters.lo[i], parameters.hi[0]};
         }
-    } else if (lo.size() == 1 && hi.size() == n) {
+    } else if (parameters.lo.size() == 1 && parameters.hi.size() == n) {
         for (unsigned i = 0; i < n; i++) {
-            v.push_back(std::pair<double, double>{lo[0], hi[i]});
+            v[i] = std::pair<double, double>{parameters.lo[0], parameters.hi[i]};
         }
-    } else if (n == 1 && lo.size() == hi.size()) {
-        for (unsigned i = 0; i < lo.size(); i++) {
-            v.push_back(std::pair<double, double>{lo[i], hi[i]});
+    } else if (n == 1 && parameters.lo.size() == parameters.hi.size()) {
+        for (unsigned i = 0; i < parameters.lo.size(); i++) {
+            v[i] = std::pair<double, double>{parameters.lo[i], parameters.hi[i]};
         }
-    } else if (n == 1 && hi.size() == 1) {
-        for (unsigned i = 0; i < lo.size(); i++) {
-            v.push_back(std::pair<double, double>{lo[1], hi[0]});
+    } else if (n == 1 && parameters.hi.size() == 1) {
+        for (unsigned i = 0; i < parameters.lo.size(); i++) {
+            v[i] = std::pair<double, double>{parameters.lo[i], parameters.hi[0]};
         }
-    } else if (n == 1 && lo.size() == 1) {
-        for (unsigned i = 0; i < hi.size(); i++) {
-            v.push_back(std::pair<double, double>{lo[0], hi[i]});
+    } else if (n == 1 && parameters.lo.size() == 1) {
+        for (unsigned i = 0; i < parameters.hi.size(); i++) {
+            v[i] = std::pair<double, double>{parameters.lo[0], parameters.hi[i]};
         }
     } else {
         throw std::invalid_argument("lo and hi must either have 1 value "
                 "or the same number of values as the number of variables.");
     }
-    return v;
+    parameters.domains = v;
 }
 
 Optimization::Optimization(opt_parameters &p) {
@@ -188,11 +189,11 @@ opt_result Optimization::random() {
     double lowest = std::numeric_limits<float>::max();
     std::vector<double> best;
     for (unsigned i = 0; i < iterations_ && lowest_found == false; i++) {
-        std::vector<double> v;
-        for (auto &d: domains_) {
+        std::vector<double> v(domains_.size());
+        for (size_t j = 0; j < domains_.size(); j++) {
             std::uniform_real_distribution<double>
-                dist(d.first, d.second);
-            v.push_back(dist(rng));
+                dist(domains_[j].first, domains_[j].second);
+            v[j] = dist(rng);
         }
         double d = exec_func(v);
         if (d < lowest) {
@@ -200,7 +201,6 @@ opt_result Optimization::random() {
             best = v;
             if (lowest < error_) {
                 lowest_found = true;
-                break;
             }
         }
     }
@@ -210,7 +210,7 @@ opt_result Optimization::random() {
 }
 
 void Optimization::single_pass(unsigned pass_no, unsigned thread_no,
-        const std::vector<double> step_size,
+        const std::vector<double> &step_size,
         std::vector<std::pair<double, std::vector<double>>>& results) {
     std::vector<double> begin(domains_.size());
     for (size_t i = 0; i < domains_.size(); i++) {

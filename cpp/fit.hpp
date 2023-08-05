@@ -38,70 +38,86 @@ extern "C" {
 #include <gsl/gsl_vector.h>
 }
 
-typedef std::function<double(const std::vector<double>)> opt_func;
+namespace Fit {
+    typedef std::function < double (const std::vector < double >) > opt_func;
+    typedef std::function < std::vector<double> (const std::vector < double >) >
+        opt_func_dx;
 
-struct opt_result {
-    double lowest;
-    std::vector<double> best;
-    unsigned calls;
-};
+    struct Result {
+        double lowest;
+        std::vector < double >best;
+        unsigned calls;
+        void print();
+    };
 
-double sphere(const std::vector<double> &v);
-//double external(const std::vector<double> &x_i);
-double rastrigin(const std::vector<double> &v);
-double flipflop(const std::vector<double> &v);
+    double sphere(const std::vector < double >&v);
+    std::vector<double> sphere_dx(const std::vector < double >&v);
+    double rastrigin(const std::vector < double >&v);
+    double flipflop(const std::vector < double >&v);
 
-struct opt_parameters {
-    std::string method = "grid";
-    std::string func_name = "sphere";
-    std::string dx_name;
-    opt_func func = sphere;
-    opt_func dx = NULL;
-    unsigned variables = 1;
-    std::vector<double> lo = {-100.0};
-    std::vector<double> hi = {100.0};
-    std::vector<std::pair<double, double>> domains = {{-100.0, 100.0}};
-    double error = 0.1;
-    std::string command = "";
-    bool verbose = false;
-    unsigned threads = std::thread::hardware_concurrency();
-    unsigned iterations = 1000;
-    std::vector<unsigned> divisions = {5};
-    unsigned generations = 3;
-    unsigned passes = 1;
-};
+    struct Parameters {
+        std::string method = "grid";
+        std::string func_name = "sphere";
+        std::string dx_name;
+        opt_func func = Fit::sphere;
+        opt_func_dx dx = Fit::sphere_dx;
+        unsigned variables = 1;
+        std::vector < double >lo = { -100.0 };
+        std::vector < double >hi = { 100.0 };
+        std::vector < std::pair < double, double >>domains =
+        { {-100.0, 100.0} };
+        double error = 0.1;
+        double step_size;
+        double tolerance;
+        std::string command = "";
+        bool verbose = false;
+        unsigned threads = std::thread::hardware_concurrency();
+        unsigned iterations = 1000;
+        std::vector < unsigned >divisions = { 5 };
+        unsigned generations = 3;
+        unsigned passes = 1;
+        void print();
+    };
 
-void make_divisions(opt_parameters &parameters);
-void make_domains(opt_parameters &parameters);
+    void make_divisions(Parameters & parameters);
+    void make_domains(Parameters & parameters);
 
-class Optimization {
-    public:
-        explicit Optimization(opt_parameters &p);
-        opt_result optimize();
-        opt_result random();
-        opt_result grid();
-        opt_result nelder_mead_simplex();
+    class Optimization {
+        public:
+            explicit Optimization(const Parameters & p = Parameters());
+            Result optimize();
+            Result random();
+            Result grid();
+            Result nelder_mead_simplex();
+            Result gradient_descent();
 
-    private:
+        private:
 
-        void
-            single_pass(unsigned pass_no, unsigned thread_no,
-                    const std::vector<double> &step_size,
-                    std::vector<std::pair<double, std::vector<double>>> &results);
-        double exec_func(const std::vector < double > &x);
-        static double nms_func(const gsl_vector *v, void *params);
-        std::string method_;
-        opt_func func_;
-        std::string command_;
-        std::vector<std::pair<double, double>> domains_;
-        std::vector<std::pair<double, double>> original_domains_;
-        double error_;
-        unsigned threads_;
-        unsigned iterations_;
-        std::vector<unsigned> divisions_ = {};
-        unsigned generations_;
-        unsigned passes_;
-        std::atomic_uint func_calls_;
-};
-
+            void single_pass(unsigned pass_no, unsigned thread_no,
+                    const std::vector < double >&step_size,
+                    std::vector < std::pair < double,
+                    std::vector < double >>>&results);
+            double exec_func(const std::vector < double >&x);
+            static double exec_func_gsl(const gsl_vector * v, void *params);
+            static void exec_func_gsl_df(const gsl_vector * v, void *params,
+                    gsl_vector * df);
+            static void exec_func_gsl_combined(const gsl_vector * x, void *params, double *f,
+                    gsl_vector * df);
+            std::string method_;
+            opt_func func_;
+            opt_func_dx dx_;
+            std::string command_;
+            std::vector < std::pair < double, double >>domains_;
+            std::vector < std::pair < double, double >>original_domains_;
+            double error_;
+            double step_size_;
+            double tolerance_;
+            unsigned threads_;
+            unsigned iterations_;
+            std::vector < unsigned >divisions_ = { };
+            unsigned generations_;
+            unsigned passes_;
+            std::atomic_uint func_calls_;
+    };
+}
 #endif

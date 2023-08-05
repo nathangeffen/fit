@@ -1,4 +1,4 @@
-CPP := g++
+CPP = g++
 CCFLAGS := -Wall -pedantic -std=c++17
 LIB_BOOST := $(shell ldconfig -p  | grep libboost_program_options.so | awk  '{print $$4}' | tail -1)
 LIB_GSL := $(shell pkg-config --cflags --libs gsl)

@@ -1,0 +1,26 @@
+[
+  {
+    "directory": "/home/nathan/workspace/fit/debug-clang",
+    "command": "clang++ -Isrc/libfit.so.p -Isrc -I../src -fcolor-diagnostics -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O0 -g -fPIC -MD -MQ src/libfit.so.p/fit.cpp.o -MF src/libfit.so.p/fit.cpp.o.d -o src/libfit.so.p/fit.cpp.o -c ../src/fit.cpp",
+    "file": "../src/fit.cpp",
+    "output": "src/libfit.so.p/fit.cpp.o"
+  },
+  {
+    "directory": "/home/nathan/workspace/fit/debug-clang",
+    "command": "clang++ -Isrc/fit.p -Isrc -I../src -I/usr/include -fcolor-diagnostics -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O0 -g -DBOOST_ALL_NO_LIB -MD -MQ src/fit.p/main.cpp.o -MF src/fit.p/main.cpp.o.d -o src/fit.p/main.cpp.o -c ../src/main.cpp",
+    "file": "../src/main.cpp",
+    "output": "src/fit.p/main.cpp.o"
+  },
+  {
+    "directory": "/home/nathan/workspace/fit/debug-clang",
+    "command": "clang -Isrc/sphere.p -Isrc -I../src -fcolor-diagnostics -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O0 -g -MD -MQ src/sphere.p/sphere.c.o -MF src/sphere.p/sphere.c.o.d -o src/sphere.p/sphere.c.o -c ../src/sphere.c",
+    "file": "../src/sphere.c",
+    "output": "src/sphere.p/sphere.c.o"
+  },
+  {
+    "directory": "/home/nathan/workspace/fit/debug-clang",
+    "command": "clang++ -Itest/fittests.p -Itest -I../test -Isrc -I../src -fcolor-diagnostics -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O0 -g -MD -MQ test/fittests.p/tests.cpp.o -MF test/fittests.p/tests.cpp.o.d -o test/fittests.p/tests.cpp.o -c ../test/tests.cpp",
+    "file": "../test/tests.cpp",
+    "output": "test/fittests.p/tests.cpp.o"
+  }
+]

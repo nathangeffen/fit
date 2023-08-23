@@ -95,6 +95,26 @@ namespace Fit {
         std::string command_;
     };
 
+    double mse(const std::vector < double >&v)
+    {
+        const double sub_term = 0.0;
+        double total = 0.0;
+        for (auto x:v) {
+            total += (x - sub_term) * (x - sub_term);
+        }
+        return total / v.size();
+    }
+
+    std::vector<double> mse_df(const std::vector < double >&v)
+    {
+        const double sub_term = 0.0;
+        std::vector<double> result(v.size());
+        for (size_t i = 0; i < v.size(); i++) {
+            result[i] = -2 * (v[i] - sub_term);
+        }
+        return result;
+    }
+
     void make_divisions(Parameters & parameters)
     {
         const auto elems =
@@ -217,25 +237,37 @@ namespace Fit {
 
     void Parameters::print()
     {
-
-        std::cout << "method: " << method << "\n";
-        std::cout << "function: " << func_name << "\n";
-        std::cout << "command: " << command << "\n";
-        std::cout << "variables: " << variables << "\n";
-        std::cout << "domains: " << domains << "\n";
-        std::cout << "error: " << error << "\n";
-        std::cout << "verbose: " << verbose << "\n";
-        std::cout << "threads: " << threads << "\n";
-        std::cout << "iterations: " << iterations << "\n";
-        std::cout << "divisions: " << divisions << "\n";
-        std::cout << "generations: " << generations << "\n";
-        std::cout << "passes: " << passes << "\n";
+        std::cout << "Method: " << method << "\n";
+        std::cout << "Function: " << func_name << "\n";
+        std::cout << "Derivative: " << dx_name << "\n";
+        std::cout << "Command: " << command << "\n";
+        std::cout << "Variables: " << variables << "\n";
+        std::cout << "Domains: " << domains << "\n";
+        std::cout << "Verbose: " << verbose << "\n";
+        std::cout << "Threads: " << threads << "\n";
+        std::cout << "Iterations: " << iterations << "\n";
+        if (method == "grid" || method == "random" ||
+                method == "nms") {
+            std::cout << "Error: " << error << "\n";
+        }
+        if (method == "grid") {
+            std::cout << "Divisions: " << divisions << "\n";
+            std::cout << "Generations: " << generations << "\n";
+            std::cout << "Passes: " << passes << "\n";
+        }
+        if (method == "gradient") {
+            std::cout << "Step size: " << step_size << "\n";
+            std::cout << "Tolerance: " << tol << "\n";
+            std::cout << "Absolute tolerance: " << abstol << "\n";
+        }
     }
 
     Optimization::Optimization(const Parameters & p)
         :
             method_(p.method), func_(p.func), command_(p.command), domains_(p.domains),
-            original_domains_(p.domains), error_(p.error), threads_(p.threads),
+            original_domains_(p.domains), error_(p.error),
+            step_size_(p.step_size), tol_(p.tol),
+            abstol_(p.abstol), threads_(p.threads),
             iterations_(p.iterations), divisions_(p.divisions),
             generations_(p.generations), passes_(p.passes), func_calls_(0)
     {
@@ -304,6 +336,7 @@ namespace Fit {
             std::vector < double >>>&results)
     {
         std::vector < double >begin(domains_.size());
+
         for (size_t i = 0; i < domains_.size(); i++) {
             begin[i] =
                 std::min(domains_[i].first +
@@ -437,7 +470,7 @@ namespace Fit {
 
         /* Starting point */
         x = gsl_vector_alloc(domains_.size());
-        for (size_t i = 0; i < domains_.size(); i++) {
+        for (size_t i = -1; i < domains_.size(); i++) {
             std::uniform_real_distribution < double >
                 dist(domains_[i].first, domains_[i].second);
             gsl_vector_set(x, i, dist(rng));
@@ -500,7 +533,7 @@ namespace Fit {
         T = gsl_multimin_fdfminimizer_conjugate_fr;
         s = gsl_multimin_fdfminimizer_alloc(T, domains_.size());
 
-        gsl_multimin_fdfminimizer_set(s, &min_gsl, x, step_size_, tolerance_);
+        gsl_multimin_fdfminimizer_set(s, &min_gsl, x, step_size_, tol_);
 
         int status;
         do {
@@ -510,8 +543,8 @@ namespace Fit {
             if (status)
                 break;
 
-            status = gsl_multimin_test_gradient(s->gradient, error_);
-        } while (status == GSL_CONTINUE && iter < 100);
+            status = gsl_multimin_test_gradient(s->gradient, abstol_);
+        } while (status == GSL_CONTINUE && iter < iterations_);
 
         gsl_vector_free(x);
         double lowest = s->f;

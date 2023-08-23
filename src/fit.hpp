@@ -58,18 +58,19 @@ namespace Fit {
     struct Parameters {
         std::string method = "grid";
         std::string func_name = "sphere";
-        std::string dx_name;
+        std::string dx_name = "";
         opt_func func = Fit::sphere;
         opt_func_dx dx = Fit::sphere_dx;
+        std::string command = "";
         unsigned variables = 1;
         std::vector < double >lo = { -100.0 };
         std::vector < double >hi = { 100.0 };
         std::vector < std::pair < double, double >>domains =
         { {-100.0, 100.0} };
         double error = 0.1;
-        double step_size;
-        double tolerance;
-        std::string command = "";
+        double step_size = 0.01;
+        double tol = 1e-4;
+        double abstol = 1e-3;
         bool verbose = false;
         unsigned threads = std::thread::hardware_concurrency();
         unsigned iterations = 1000;
@@ -92,7 +93,6 @@ namespace Fit {
             Result gradient_descent();
 
         private:
-
             void single_pass(unsigned pass_no, unsigned thread_no,
                     const std::vector < double >&step_size,
                     std::vector < std::pair < double,
@@ -111,7 +111,8 @@ namespace Fit {
             std::vector < std::pair < double, double >>original_domains_;
             double error_;
             double step_size_;
-            double tolerance_;
+            double tol_;
+            double abstol_;
             unsigned threads_;
             unsigned iterations_;
             std::vector < unsigned >divisions_ = { };

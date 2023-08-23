@@ -1,0 +1,96 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_EXCMD	mixed	/number, pattern, mixed, or combineV2/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
+!_TAG_PROC_CWD	/home/nathan/workspace/fit/	//
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	5.9.0	//
+FIT_HPP	src/fit.hpp	/^#define FIT_HPP$/;"	d
+Fit	src/fit.cpp	/^namespace Fit {$/;"	n	file:
+Fit	src/fit.hpp	/^namespace Fit {$/;"	n
+Optimization	src/fit.cpp	/^    Optimization::Optimization(const Parameters & p)$/;"	f	class:Fit::Optimization
+Optimization	src/fit.hpp	/^    class Optimization {$/;"	c	namespace:Fit
+Parameters	src/fit.hpp	/^    struct Parameters {$/;"	s	namespace:Fit
+Result	src/fit.hpp	/^    struct Result {$/;"	s	namespace:Fit
+__anonb5e984500102	src/fit.cpp	/^                             &results] {$/;"	f	function:Fit::Optimization::grid	file:
+abstol	src/fit.hpp	/^        double abstol = 1e-3;$/;"	m	struct:Fit::Parameters	typeref:typename:double
+abstol_	src/fit.hpp	/^            double abstol_;$/;"	m	class:Fit::Optimization	typeref:typename:double
+best	src/fit.hpp	/^        std::vector < double >best;$/;"	m	struct:Fit::Result	typeref:typename:std::vector<double>
+calls	src/fit.hpp	/^        unsigned calls;$/;"	m	struct:Fit::Result	typeref:typename:unsigned
+command	src/fit.hpp	/^        std::string command = "";$/;"	m	struct:Fit::Parameters	typeref:typename:std::string
+command_	src/fit.cpp	/^        std::string command_;$/;"	m	struct:Fit::external	typeref:typename:std::string	file:
+command_	src/fit.hpp	/^            std::string command_;$/;"	m	class:Fit::Optimization	typeref:typename:std::string
+divisions	src/fit.hpp	/^        std::vector < unsigned >divisions = { 5 };$/;"	m	struct:Fit::Parameters	typeref:typename:std::vector<unsigned>
+divisions_	src/fit.hpp	/^            std::vector < unsigned >divisions_ = { };$/;"	m	class:Fit::Optimization	typeref:typename:std::vector<unsigned>
+domains	src/fit.hpp	/^        std::vector < std::pair < double, double >>domains =$/;"	m	struct:Fit::Parameters	typeref:typename:std::vector<std::pair<double,double>>
+domains_	src/fit.hpp	/^            std::vector < std::pair < double, double >>domains_;$/;"	m	class:Fit::Optimization	typeref:typename:std::vector<std::pair<double,double>>
+dx	src/fit.hpp	/^        opt_func_dx dx = Fit::sphere_dx;$/;"	m	struct:Fit::Parameters	typeref:typename:opt_func_dx
+dx_	src/fit.hpp	/^            opt_func_dx dx_;$/;"	m	class:Fit::Optimization	typeref:typename:opt_func_dx
+dx_name	src/fit.hpp	/^        std::string dx_name = "";$/;"	m	struct:Fit::Parameters	typeref:typename:std::string
+error	src/fit.hpp	/^        double error = 0.1;$/;"	m	struct:Fit::Parameters	typeref:typename:double
+error_	src/fit.hpp	/^            double error_;$/;"	m	class:Fit::Optimization	typeref:typename:double
+exec_func	src/fit.cpp	/^    double Optimization::exec_func(const std::vector < double > &x)$/;"	f	class:Fit::Optimization	typeref:typename:double
+exec_func_gsl	src/fit.cpp	/^    double Optimization::exec_func_gsl(const gsl_vector *v, void *params)$/;"	f	class:Fit::Optimization	typeref:typename:double
+exec_func_gsl_combined	src/fit.cpp	/^    void Optimization::exec_func_gsl_combined(const gsl_vector * x, void *params, double *f,$/;"	f	class:Fit::Optimization	typeref:typename:void
+exec_func_gsl_df	src/fit.cpp	/^    void Optimization::exec_func_gsl_df(const gsl_vector * v, void *params,$/;"	f	class:Fit::Optimization	typeref:typename:void
+external	src/fit.cpp	/^        explicit external(std::string & command):command_(command) {$/;"	f	struct:Fit::external	file:
+external	src/fit.cpp	/^    struct external {$/;"	s	namespace:Fit	file:
+flipflop	src/fit.cpp	/^    double flipflop(const std::vector < double >&v)$/;"	f	namespace:Fit	typeref:typename:double
+func	src/fit.hpp	/^        opt_func func = Fit::sphere;$/;"	m	struct:Fit::Parameters	typeref:typename:opt_func
+func_	src/fit.hpp	/^            opt_func func_;$/;"	m	class:Fit::Optimization	typeref:typename:opt_func
+func_calls_	src/fit.hpp	/^            std::atomic_uint func_calls_;$/;"	m	class:Fit::Optimization	typeref:typename:std::atomic_uint
+func_name	src/fit.hpp	/^        std::string func_name = "sphere";$/;"	m	struct:Fit::Parameters	typeref:typename:std::string
+generations	src/fit.hpp	/^        unsigned generations = 3;$/;"	m	struct:Fit::Parameters	typeref:typename:unsigned
+generations_	src/fit.hpp	/^            unsigned generations_;$/;"	m	class:Fit::Optimization	typeref:typename:unsigned
+gradient_descent	src/fit.cpp	/^    Result Optimization::gradient_descent()$/;"	f	class:Fit::Optimization	typeref:typename:Result
+grid	src/fit.cpp	/^    Result Optimization::grid()$/;"	f	class:Fit::Optimization	typeref:typename:Result
+hi	src/fit.hpp	/^        std::vector < double >hi = { 100.0 };$/;"	m	struct:Fit::Parameters	typeref:typename:std::vector<double>
+iterations	src/fit.hpp	/^        unsigned iterations = 1000;$/;"	m	struct:Fit::Parameters	typeref:typename:unsigned
+iterations_	src/fit.hpp	/^            unsigned iterations_;$/;"	m	class:Fit::Optimization	typeref:typename:unsigned
+lo	src/fit.hpp	/^        std::vector < double >lo = { -100.0 };$/;"	m	struct:Fit::Parameters	typeref:typename:std::vector<double>
+lowest	src/fit.hpp	/^        double lowest;$/;"	m	struct:Fit::Result	typeref:typename:double
+main	src/main.cpp	/^int main(int argc, char *argv[]) {$/;"	f	typeref:typename:int
+main	src/sphere.c	/^int main(int argc, char *argv[])$/;"	f	typeref:typename:int
+make_divisions	src/fit.cpp	/^    void make_divisions(Parameters & parameters)$/;"	f	namespace:Fit	typeref:typename:void
+make_domains	src/fit.cpp	/^    void make_domains(Parameters & parameters)$/;"	f	namespace:Fit	typeref:typename:void
+method	src/fit.hpp	/^        std::string method = "grid";$/;"	m	struct:Fit::Parameters	typeref:typename:std::string
+method_	src/fit.hpp	/^            std::string method_;$/;"	m	class:Fit::Optimization	typeref:typename:std::string
+mse	src/fit.cpp	/^    double mse(const std::vector < double >&v)$/;"	f	namespace:Fit	typeref:typename:double
+mse_df	src/fit.cpp	/^    std::vector<double> mse_df(const std::vector < double >&v)$/;"	f	namespace:Fit	typeref:typename:std::vector<double>
+nelder_mead_simplex	src/fit.cpp	/^    Result Optimization::nelder_mead_simplex()$/;"	f	class:Fit::Optimization	typeref:typename:Result
+operator () 	src/fit.cpp	/^        } double operator() (const std::vector < double >&x_i) {$/;"	f	struct:Fit::external	typeref:typename:double	file:
+operator <<	src/fit.cpp	/^        std::ostream &operator<<(std::ostream &os, const std::vector<T> &v) {$/;"	f	namespace:Fit	typeref:typename:std::ostream &
+operator <<	src/fit.cpp	/^    std::ostream &operator<<(std::ostream &os,$/;"	f	namespace:Fit	typeref:typename:std::ostream &
+opt_func	src/fit.hpp	/^    typedef std::function < double (const std::vector < double >) > opt_func;$/;"	t	namespace:Fit
+opt_func_dx	src/fit.hpp	/^        opt_func_dx;$/;"	t	namespace:Fit
+optimize	src/fit.cpp	/^    Result Optimization::optimize()$/;"	f	class:Fit::Optimization	typeref:typename:Result
+original_domains_	src/fit.hpp	/^            std::vector < std::pair < double, double >>original_domains_;$/;"	m	class:Fit::Optimization	typeref:typename:std::vector<std::pair<double,double>>
+passes	src/fit.hpp	/^        unsigned passes = 1;$/;"	m	struct:Fit::Parameters	typeref:typename:unsigned
+passes_	src/fit.hpp	/^            unsigned passes_;$/;"	m	class:Fit::Optimization	typeref:typename:unsigned
+print	src/fit.cpp	/^    void Parameters::print()$/;"	f	class:Fit::Parameters	typeref:typename:void
+print	src/fit.cpp	/^    void Result::print()$/;"	f	class:Fit::Result	typeref:typename:void
+process_options	src/main.cpp	/^void process_options(int argc, char *argv[], Fit::Parameters &parameters) {$/;"	f	typeref:typename:void
+random	src/fit.cpp	/^    Result Optimization::random()$/;"	f	class:Fit::Optimization	typeref:typename:Result
+rastrigin	src/fit.cpp	/^    double rastrigin(const std::vector < double >&v)$/;"	f	namespace:Fit	typeref:typename:double
+rd	src/fit.cpp	/^static std::random_device rd;$/;"	v	typeref:typename:std::random_device	file:
+single_pass	src/fit.cpp	/^    void Optimization::single_pass(unsigned pass_no, unsigned thread_no,$/;"	f	class:Fit::Optimization	typeref:typename:void
+sphere	src/fit.cpp	/^    double sphere(const std::vector < double >&v)$/;"	f	namespace:Fit	typeref:typename:double
+sphere	src/sphere.c	/^double sphere(const double x[], size_t n)$/;"	f	typeref:typename:double
+sphere_dx	src/fit.cpp	/^    std::vector<double> sphere_dx(const std::vector < double >&v)$/;"	f	namespace:Fit	typeref:typename:std::vector<double>
+split	src/main.cpp	/^std::vector<std::string> split(const std::string &str, char delim = ':') {$/;"	f	typeref:typename:std::vector<std::string>
+step_size	src/fit.hpp	/^        double step_size = 0.01;$/;"	m	struct:Fit::Parameters	typeref:typename:double
+step_size_	src/fit.hpp	/^            double step_size_;$/;"	m	class:Fit::Optimization	typeref:typename:double
+strvecT	src/fit.cpp	/^    template <typename T> std::string strvecT(const std::vector<T> &v) {$/;"	f	namespace:Fit	typeref:typename:std::string
+strvechilo	src/fit.cpp	/^    std::string strvechilo(const std::vector<std::pair<double, double>> &v) {$/;"	f	namespace:Fit	typeref:typename:std::string
+strvectodblvec	src/main.cpp	/^std::vector<double> strvectodblvec(const std::vector<std::string> &vals) {$/;"	f	typeref:typename:std::vector<double>
+strvectounsvec	src/main.cpp	/^std::vector<unsigned> strvectounsvec(const std::vector<std::string> &vals) {$/;"	f	typeref:typename:std::vector<unsigned>
+threads	src/fit.hpp	/^        unsigned threads = std::thread::hardware_concurrency();$/;"	m	struct:Fit::Parameters	typeref:typename:unsigned
+threads_	src/fit.hpp	/^            unsigned threads_;$/;"	m	class:Fit::Optimization	typeref:typename:unsigned
+tol	src/fit.hpp	/^        double tol = 1e-4;$/;"	m	struct:Fit::Parameters	typeref:typename:double
+tol_	src/fit.hpp	/^            double tol_;$/;"	m	class:Fit::Optimization	typeref:typename:double
+variables	src/fit.hpp	/^        unsigned variables = 1;$/;"	m	struct:Fit::Parameters	typeref:typename:unsigned
+verbose	src/fit.hpp	/^        bool verbose = false;$/;"	m	struct:Fit::Parameters	typeref:typename:bool

@@ -13,11 +13,11 @@
  *  with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "fit.hpp"
-#include <boost/program_options.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
+#include <boost/program_options.hpp>
+#include "fit.hpp"
 
 namespace po = boost::program_options;
 
@@ -49,8 +49,15 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
             "maximum number of iterations");
 
     po::options_description grad("Gradient descent method");
-    grad.add_options()("dx,x", po::value<std::string>(),
-            "function to calculate the derivative of the function being optimized");
+    grad.add_options()
+        ("dx,x", po::value<std::string>(),
+         "function to calculate the derivative of the function being optimized")
+        ("step", po::value<double>(),
+         "GNU Scientific Library step size for gradient descent")
+        ("tol", po::value<double>(),
+         "GNU Scientific Library tolerance about minima for gradient descent")
+        ("abstol",  po::value<double>(),
+         "GNU Scientitic Library absolute tolerance about minima for gradient descent");
 
     po::options_description cmdline_options;
     cmdline_options.add(generic).add(grid).add(random).add(grad);
@@ -59,7 +66,7 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
     po::store(po::parse_command_line(argc, argv, cmdline_options), vm);
     po::notify(vm);
 
-    if (vm.count("help")) {
+    if (vm.count("help") || argc == 1) {
         std::cout << cmdline_options << "\n";
         exit(EXIT_SUCCESS);
     }
@@ -114,6 +121,18 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
 
     if (vm.count("dx")) {
         parameters.dx_name = vm["dx"].as<std::string>();
+    }
+
+    if (vm.count("step")) {
+        parameters.step_size= vm["step"].as<double>();
+    }
+
+    if (vm.count("tol")) {
+        parameters.tol = vm["tol"].as<double>();
+    }
+
+    if (vm.count("abstol")) {
+        parameters.abstol = vm["abstol"].as<double>();
     }
 
     if (vm.count("threads")) {
@@ -188,10 +207,8 @@ int main(int argc, char *argv[]) {
     if (parameters.verbose) {
         parameters.print();
     }
-
     Fit::Optimization og(parameters);
     Fit::Result result = og.optimize();
     result.print();
-
     return 0;
 }

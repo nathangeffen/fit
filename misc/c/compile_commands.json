@@ -1,0 +1,14 @@
+[
+  {
+    "directory": "/home/nathan/workspace/fit/c/debug",
+    "command": "cc -Isrc/libfit.so.p -Isrc -I../src -Iinclude -I../include -I/usr/local/include/useful -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -fdiagnostics-color=always -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O0 -g -fPIC -MD -MQ src/libfit.so.p/fit.c.o -MF src/libfit.so.p/fit.c.o.d -o src/libfit.so.p/fit.c.o -c ../src/fit.c",
+    "file": "../src/fit.c",
+    "output": "src/libfit.so.p/fit.c.o"
+  },
+  {
+    "directory": "/home/nathan/workspace/fit/c/debug",
+    "command": "cc -Isrc/fitexe.p -Isrc -I../src -Iinclude -I../include -I/usr/local/include/useful -fdiagnostics-color=always -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O0 -g -MD -MQ src/fitexe.p/main.c.o -MF src/fitexe.p/main.c.o.d -o src/fitexe.p/main.c.o -c ../src/main.c",
+    "file": "../src/main.c",
+    "output": "src/fitexe.p/main.c.o"
+  }
+]

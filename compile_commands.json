@@ -19,8 +19,8 @@
   },
   {
     "directory": "/home/nathan/workspace/fit/debug-clang",
-    "command": "clang++ -Itest/fittests.p -Itest -I../test -Isrc -I../src -fcolor-diagnostics -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O0 -g -MD -MQ test/fittests.p/tests.cpp.o -MF test/fittests.p/tests.cpp.o.d -o test/fittests.p/tests.cpp.o -c ../test/tests.cpp",
-    "file": "../test/tests.cpp",
-    "output": "test/fittests.p/tests.cpp.o"
+    "command": "clang++ -Isrc/fittests.p -Isrc -I../src -fcolor-diagnostics -D_FILE_OFFSET_BITS=64 -Wall -Winvalid-pch -O0 -g -MD -MQ src/fittests.p/tests.cpp.o -MF src/fittests.p/tests.cpp.o.d -o src/fittests.p/tests.cpp.o -c ../src/tests.cpp",
+    "file": "../src/tests.cpp",
+    "output": "src/fittests.p/tests.cpp.o"
   }
 ]

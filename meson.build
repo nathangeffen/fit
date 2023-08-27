@@ -2,11 +2,10 @@ project('fit', ['cpp', 'c',],
   version : '0.1.0',
   license : 'GPL-2.0-or-later')
 
-boost_dep = dependency('boost', modules : ['program_options',])
+boost_dep = dependency('boost', modules : ['program_options', ])
 gsl_dep = dependency('gsl')
 
 subdir('src')
-subdir('test')
 
 pkg_mod = import('pkgconfig')
 pkg_mod.generate(libraries : fitlib,

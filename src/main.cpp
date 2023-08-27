@@ -52,6 +52,8 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
     grad.add_options()
         ("dx,x", po::value<std::string>(),
          "function to calculate the derivative of the function being optimized")
+        ("command_dx,x", po::value<std::string>(),
+         "command line for when dx==external")
         ("step", po::value<double>(),
          "GNU Scientific Library step size for gradient descent")
         ("tol", po::value<double>(),
@@ -89,6 +91,10 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
 
     if (vm.count("command")) {
         parameters.command = vm["command"].as<std::string>();
+    }
+
+    if (vm.count("command_dx")) {
+        parameters.command_dx = vm["command_dx"].as<std::string>();
     }
 
     if (vm.count("error")) {

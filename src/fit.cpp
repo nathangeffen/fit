@@ -37,6 +37,7 @@ static std::random_device rd;
 thread_local std::default_random_engine rng(rd());
 
 namespace Fit {
+    // Test functions
     double sphere(const std::vector < double >&v)
     {
         double total = 0.0;
@@ -75,25 +76,49 @@ namespace Fit {
         return fabs(total);
     }
 
-    struct external {
-        explicit external(std::string & command):command_(command) {
-        } double operator() (const std::vector < double >&x_i) {
-            std::stringstream args;
-            bp::ipstream is;
-            args << " ";
-            for (auto x:  x_i)
-                args << x << " ";
+    // If an external program is being optimized this is the
+    // function that must be called.
+    external::external(std::string & command):command_(command) {};
 
-            std::string cmd = command_ + " " + args.str();
-            bp::system(cmd, bp::std_out > is);
+    double external::operator() (const std::vector < double >&x_i) {
+        std::stringstream args;
+        bp::ipstream is;
+        args << " ";
+        for (auto x:  x_i)
+            args << x << " ";
 
-            double result;
-            is >> result;
-            return result;
-        }
-        private:
-        std::string command_;
+        std::string cmd = command_ + " " + args.str();
+        bp::system(cmd, bp::std_out > is);
+
+        double result;
+        is >> result;
+        return result;
     };
+
+    external_dx::external_dx(std::string & command):command_(command) {};
+
+    // If an external program is being optimized  and it also has an external gradient function this is the
+    // function that must be called.
+    std::vector<double> external_dx::operator() (const std::vector < double >&x_i) {
+        std::stringstream args;
+        bp::ipstream is;
+        args << " ";
+        for (auto x:  x_i)
+            args << x << " ";
+
+        std::string cmd = command_ + " " + args.str();
+        bp::system(cmd, bp::std_out > is);
+
+        std::vector<double> result;
+
+        double d;
+        while(is >> d)
+            result.push_back(d);
+        return result;
+    };
+
+    // Mean squared error. Sometimes it makes sense to make this the function
+    // to be minimized.
 
     double mse(const std::vector < double >&v)
     {
@@ -105,6 +130,7 @@ namespace Fit {
         return total / v.size();
     }
 
+    // Mean squared error derivative.
     std::vector<double> mse_df(const std::vector < double >&v)
     {
         const double sub_term = 0.0;
@@ -126,14 +152,14 @@ namespace Fit {
 
         if (n == 1 && parameters.divisions.size() >= 1) {
             ;
+        } else if (n == parameters.divisions.size()) {
+            ;
         } else if (n > 1 && parameters.divisions.size() == 1) {
             std::vector < unsigned >v(n);
             for (unsigned i = 0; i < n; i++) {
                 v[i] = parameters.divisions[0];
             }
             parameters.divisions = v;
-        } else if (n == parameters.divisions.size()) {
-            ;
         } else {
             throw std::invalid_argument
                 ("mismatch between divisions and variables");
@@ -264,9 +290,10 @@ namespace Fit {
 
     Optimization::Optimization(const Parameters & p)
         :
-            method_(p.method), func_(p.func), command_(p.command), domains_(p.domains),
-            original_domains_(p.domains), error_(p.error),
-            step_size_(p.step_size), tol_(p.tol),
+            method_(p.method), func_(p.func), dx_(p.dx),
+            command_(p.command), command_dx_(p.command_dx),
+            domains_(p.domains), original_domains_(p.domains),
+            error_(p.error), step_size_(p.step_size), tol_(p.tol),
             abstol_(p.abstol), threads_(p.threads),
             iterations_(p.iterations), divisions_(p.divisions),
             generations_(p.generations), passes_(p.passes), func_calls_(0)
@@ -274,6 +301,10 @@ namespace Fit {
         if (p.func_name == "external") {
             external e(command_);
             func_ = e;
+        }
+        if (p.dx_name == "external") {
+            external_dx e(command_dx_);
+            dx_ = e;
         }
     }
 
@@ -285,13 +316,14 @@ namespace Fit {
 
     Result Optimization::optimize()
     {
-        std::cout << "Method: " << method_ << "\n";
         if (method_ == "random") {
             return random();
         } else if (method_ == "grid") {
             return grid();
         } else if (method_ == "nms") {
             return nelder_mead_simplex();
+        } else if (method_ == "gradient") {
+            return gradient_descent();
         } else {
             std::string msg = "unknown optimization method " + method_;
             throw std::invalid_argument(msg);
@@ -470,7 +502,7 @@ namespace Fit {
 
         /* Starting point */
         x = gsl_vector_alloc(domains_.size());
-        for (size_t i = -1; i < domains_.size(); i++) {
+        for (size_t i = 0; i < domains_.size(); i++) {
             std::uniform_real_distribution < double >
                 dist(domains_[i].first, domains_[i].second);
             gsl_vector_set(x, i, dist(rng));
@@ -509,7 +541,6 @@ namespace Fit {
 
     Result Optimization::gradient_descent()
     {
-
         const gsl_multimin_fdfminimizer_type *T;
         gsl_multimin_fdfminimizer *s;
         gsl_vector *x;

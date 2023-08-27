@@ -1,15 +1,17 @@
+/*
+ * For test purposes only. Hence the use of variable length arrays.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #define STB_DS_IMPLEMENTATION
 #include "stb_ds.h"
 
-double sphere(const double x[], size_t n)
+void sphere_dx(const double x[], size_t n, double dx[])
 {
-        double total = 0.0;
-        for (size_t i = 0; i < n; i++)
-                total += x[i] * x[i];
-        return total;
+        for (size_t i = 0; i < n; i++) {
+                dx[i] = 2 * x[i];
+        }
 }
 
 int main(int argc, char *argv[])
@@ -25,8 +27,16 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Sphere failed: %s\n", strerror(errno));
                 exit(EXIT_FAILURE);
         }
+
         for (int i = 0; i < n; i++)
                 x[i] = atof(argv[i + 1]);
-        printf("%f\n", sphere(x, n));
+
+        double *dx = NULL;
+        arrsetlen(dx, n);
+        sphere_dx(x, n, dx);
+        for (size_t i = 0; i < n; i++)
+                printf("%f ", dx[i]);
+        printf("\n");
         arrfree(x);
+        arrfree(dx);
 }

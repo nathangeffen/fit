@@ -34,3 +34,5 @@ if valgrind.found()
 else
   message('Valgrind not found, so not running memory leak tests')
 endif
+
+test('Scripts', script_exe)

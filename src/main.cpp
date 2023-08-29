@@ -13,11 +13,11 @@
  *  with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "fit.hpp"
+#include <boost/program_options.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <boost/program_options.hpp>
-#include "fit.hpp"
 
 namespace po = boost::program_options;
 
@@ -33,7 +33,9 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
                     "function to optimize")("command,c", po::value<std::string>(),
                         "command line for when function==external")(
                             "error,e", po::value<double>(), "minimum error stop condition")(
-                            "threads,t", po::value<unsigned>(), "number of threads");
+                            "threads,t", po::value<unsigned>(), "number of threads")
+                            ("check", po::value<bool>(),
+                             "check that parameters are sensible before optimizing");
 
     po::options_description grid("Grid evolve method");
     grid.add_options()("generations,g", po::value<unsigned>(),
@@ -49,17 +51,18 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
             "maximum number of iterations");
 
     po::options_description grad("Gradient descent method");
-    grad.add_options()
-        ("dx,x", po::value<std::string>(),
-         "function to calculate the derivative of the function being optimized")
-        ("command_dx,x", po::value<std::string>(),
-         "command line for when dx==external")
-        ("step", po::value<double>(),
-         "GNU Scientific Library step size for gradient descent")
-        ("tol", po::value<double>(),
-         "GNU Scientific Library tolerance about minima for gradient descent")
-        ("abstol",  po::value<double>(),
-         "GNU Scientitic Library absolute tolerance about minima for gradient descent");
+    grad.add_options()(
+            "dx,x", po::value<std::string>(),
+            "function to calculate the derivative of the function being optimized")(
+                "command_dx,y", po::value<std::string>(),
+                "command line for when dx==external")(
+                    "step", po::value<double>(),
+                    "GNU Scientific Library step size for gradient descent")(
+                        "tol", po::value<double>(),
+                        "GNU Scientific Library tolerance about minima for gradient descent")(
+                            "abstol", po::value<double>(),
+                            "GNU Scientitic Library absolute tolerance about minima for gradient "
+                            "descent");
 
     po::options_description cmdline_options;
     cmdline_options.add(generic).add(grid).add(random).add(grad);
@@ -75,6 +78,10 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
 
     if (vm.count("verbose")) {
         parameters.verbose = true;
+    }
+
+    if (vm.count("check")) {
+        parameters.check = vm["check"].as<bool>();
     }
 
     if (vm.count("variables")) {
@@ -130,7 +137,7 @@ void process_options(int argc, char *argv[], Fit::Parameters &parameters) {
     }
 
     if (vm.count("step")) {
-        parameters.step_size= vm["step"].as<double>();
+        parameters.step_size = vm["step"].as<double>();
     }
 
     if (vm.count("tol")) {
@@ -179,14 +186,14 @@ std::vector<unsigned> strvectounsvec(const std::vector<std::string> &vals) {
     return result;
 }
 
-
 int main(int argc, char *argv[]) {
     Fit::Parameters parameters;
 
     try {
         process_options(argc, argv, parameters);
     } catch (const std::exception &e) {
-        std::cerr << "Error on command line. Try:\n" << argv[0] << " --help \n";
+        std::cerr << "Error on command line: " << e.what() << "\n";
+        std::cerr << "Try:\n" << argv[0] << " --help \n";
         exit(EXIT_FAILURE);
     }
 
@@ -203,18 +210,16 @@ int main(int argc, char *argv[]) {
     }
 
     try {
-        make_divisions(parameters);
-        make_domains(parameters);
-    } catch (const std::exception &e) {
+        Fit::Optimization og(parameters);
+        Fit::Result result = og.optimize();
+        result.print();
+    } catch (const std::invalid_argument &e) {
+        std::cerr << "Error with command line arguments: " << e.what() << "\n";
+        std::cerr << "Try:\n" << argv[0] << " -h\n" << "for help.\n";
+        exit(EXIT_FAILURE);
+    } catch (std::exception &e) {
         std::cerr << "Error: " << e.what() << "\n";
         exit(EXIT_FAILURE);
     }
-
-    if (parameters.verbose) {
-        parameters.print();
-    }
-    Fit::Optimization og(parameters);
-    Fit::Result result = og.optimize();
-    result.print();
     return 0;
 }

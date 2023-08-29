@@ -4,6 +4,7 @@ project('fit', ['cpp', 'c',],
 
 boost_dep = dependency('boost', modules : ['program_options', ])
 gsl_dep = dependency('gsl')
+script_exe = find_program('fit_tests.sh')
 
 subdir('src')
 
